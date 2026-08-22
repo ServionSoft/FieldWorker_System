@@ -12,7 +12,7 @@ import type { AuthedRequest, AppRole } from '../../types.js';
 import { loadEffectivePermissions, PERMISSIONS } from '../rbac/permissions.js';
 import { notify, notifyPlatformAdmins } from '../../utils/helpers.js';
 import { sendPlatformEmail } from '../../services/email.js';
-import { env } from '../../config/env.js';
+import { env, corsOrigins } from '../../config/env.js';
 import { loadPlanFeatures } from '../billing/plan-features.js';
 import { isCompanyProfileComplete } from '../company/onboarding.js';
 
@@ -344,13 +344,18 @@ authRouter.post('/forgot-password', wrap(async (req, res) => {
        VALUES ($1,$2, now() + interval '1 hour')`,
       [rows[0].id, sha256(token)],
     );
-    const base = env.CORS_ORIGIN;
-    const link = `${base.replace(/\/$/, '')}/reset-password?token=${token}`;
-    await sendPlatformEmail({
-      to: body.email,
-      templateType: 'password_reset',
-      vars: { resetLink: link },
-    });
+    const base = (env.APP_PUBLIC_URL || corsOrigins[0] || 'http://localhost:8080').replace(/\/$/, '');
+    const link = `${base}/reset-password?token=${token}`;
+    try {
+      await sendPlatformEmail({
+        to: body.email,
+        templateType: 'password_reset',
+        vars: { resetLink: link },
+      });
+    } catch (err) {
+      // Always return generic success; do not leak mail/config failures to clients.
+      console.error('forgot-password email failed', err);
+    }
     if (process.env.NODE_ENV !== 'production') {
       console.log(`Password reset token for ${body.email}: ${token}`);
     }

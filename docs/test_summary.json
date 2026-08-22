@@ -1,0 +1,474 @@
+[
+  [
+    "FieldPro — UI Test Case Suite Summary",
+    null,
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Source: FieldPro SRF v2.0 (20 Aug 2026). All test cases are executed via the frontend (browser UI); the UI calls the backend REST/Socket.io API — no direct API-level test cases are included.",
+    null,
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Total test cases",
+    "278",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "By Module",
+    null,
+    null,
+    "By Priority",
+    null,
+    null
+  ],
+  [
+    "Module",
+    "Count",
+    null,
+    "Priority",
+    "Count",
+    null
+  ],
+  [
+    "Auth — Invite Accept",
+    "6",
+    null,
+    "High",
+    "102",
+    null
+  ],
+  [
+    "Auth — Login & Signup",
+    "14",
+    null,
+    "Low",
+    "59",
+    null
+  ],
+  [
+    "Auth — Reset Password",
+    "5",
+    null,
+    "Medium",
+    "117",
+    null
+  ],
+  [
+    "Cross-cutting — Dual Email Channels",
+    "6",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Cross-cutting — RBAC",
+    "7",
+    null,
+    "By Type",
+    null,
+    null
+  ],
+  [
+    "Cross-cutting — Shell",
+    "7",
+    null,
+    "Type",
+    "Count",
+    null
+  ],
+  [
+    "Cross-cutting — Tenancy & Isolation",
+    "5",
+    null,
+    "Functional",
+    "209",
+    null
+  ],
+  [
+    "NFR — Reliability & Ops",
+    "3",
+    null,
+    "Negative",
+    "30",
+    null
+  ],
+  [
+    "NFR — Security",
+    "6",
+    null,
+    "Security",
+    "39",
+    null
+  ],
+  [
+    "NFR — Usability & Performance",
+    "3",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Agreements",
+    "4",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Calendar",
+    "4",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Chat",
+    "5",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Communications",
+    "7",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Customer Profile",
+    "10",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Customers List",
+    "14",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Dashboard",
+    "8",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Dispatch",
+    "3",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Documents",
+    "5",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Email Templates",
+    "4",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Estimate Detail",
+    "11",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Estimates",
+    "4",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Inventory",
+    "7",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Invoices",
+    "6",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Job Detail",
+    "15",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Jobs List",
+    "15",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Notifications",
+    "2",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Onboarding",
+    "9",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Profile",
+    "3",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Reports",
+    "2",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Settings > Billing",
+    "6",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Settings > Communications (Twilio)",
+    "2",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Settings > Company",
+    "2",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Settings > Notifications",
+    "1",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Settings > SMTP",
+    "5",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Settings > Users",
+    "7",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Office — Workers",
+    "8",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Public — Landing",
+    "5",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Public — Not Found",
+    "1",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Super Admin — Audit Log",
+    "2",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Super Admin — Companies",
+    "5",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Super Admin — Company Detail",
+    "6",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Super Admin — Dashboard",
+    "1",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Super Admin — Platform Settings",
+    "6",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Super Admin — Profile & Notifications",
+    "2",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Super Admin — Reports",
+    "1",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Super Admin — Subscriptions / Plans",
+    "5",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Worker — Dashboard",
+    "2",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Worker — Job Detail",
+    "4",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Worker — Jobs List",
+    "2",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Worker — Profile",
+    "3",
+    null,
+    null,
+    null,
+    null
+  ],
+  [
+    "Worker — Schedule",
+    "2",
+    null,
+    null,
+    null,
+    null
+  ]
+]

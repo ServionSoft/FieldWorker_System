@@ -1,0 +1,161 @@
+{
+  "fe": "https://field-worker-system.vercel.app",
+  "api": "https://fieldpro-backend-ulp9.onrender.com/api",
+  "ranAt": "2026-08-22T02:34:49.893Z",
+  "summary": {
+    "FAIL": 2,
+    "PASS": 23
+  },
+  "results": [
+    {
+      "tc": "TC-002",
+      "status": "FAIL",
+      "notes": "GET /plans → 200, count=?",
+      "at": "2026-08-22T02:34:00.605Z"
+    },
+    {
+      "tc": "NFR-health",
+      "status": "PASS",
+      "notes": "{\"status\":\"ok\"}",
+      "at": "2026-08-22T02:34:00.738Z"
+    },
+    {
+      "tc": "TC-006",
+      "status": "PASS",
+      "notes": "role=owner company=Mitesoft",
+      "at": "2026-08-22T02:34:02.683Z"
+    },
+    {
+      "tc": "TC-013",
+      "status": "PASS",
+      "notes": "role=super_admin",
+      "at": "2026-08-22T02:34:04.683Z"
+    },
+    {
+      "tc": "TC-014",
+      "status": "PASS",
+      "notes": "role=field_worker",
+      "at": "2026-08-22T02:34:06.658Z"
+    },
+    {
+      "tc": "TC-010",
+      "status": "PASS",
+      "notes": "status=401",
+      "at": "2026-08-22T02:34:08.149Z"
+    },
+    {
+      "tc": "TC-011",
+      "status": "PASS",
+      "notes": "status=401",
+      "at": "2026-08-22T02:34:08.290Z"
+    },
+    {
+      "tc": "TC-017",
+      "status": "PASS",
+      "notes": "status=400",
+      "at": "2026-08-22T02:34:08.394Z"
+    },
+    {
+      "tc": "TC-019",
+      "status": "FAIL",
+      "notes": "existing=500 missing=200",
+      "at": "2026-08-22T02:34:09.149Z"
+    },
+    {
+      "tc": "TC-041",
+      "status": "PASS",
+      "notes": "status=200",
+      "at": "2026-08-22T02:34:09.989Z"
+    },
+    {
+      "tc": "TC-049",
+      "status": "PASS",
+      "notes": "status=200 items=10",
+      "at": "2026-08-22T02:34:13.499Z"
+    },
+    {
+      "tc": "TC-103",
+      "status": "PASS",
+      "notes": "status=200 items=10",
+      "at": "2026-08-22T02:34:15.701Z"
+    },
+    {
+      "tc": "TC-203",
+      "status": "PASS",
+      "notes": "status=200 items=2",
+      "at": "2026-08-22T02:34:16.822Z"
+    },
+    {
+      "tc": "TC-208",
+      "status": "PASS",
+      "notes": "status=404",
+      "at": "2026-08-22T02:34:17.254Z"
+    },
+    {
+      "tc": "TC-213",
+      "status": "PASS",
+      "notes": "status=403",
+      "at": "2026-08-22T02:34:17.438Z"
+    },
+    {
+      "tc": "TC-SA-companies",
+      "status": "PASS",
+      "notes": "status=200",
+      "at": "2026-08-22T02:34:17.785Z"
+    },
+    {
+      "tc": "TC-profile-api",
+      "status": "PASS",
+      "notes": "status=200",
+      "at": "2026-08-22T02:34:18.054Z"
+    },
+    {
+      "tc": "NFR-cors",
+      "status": "PASS",
+      "notes": "acao=https://field-worker-system.vercel.app",
+      "at": "2026-08-22T02:34:18.220Z"
+    },
+    {
+      "tc": "TC-001",
+      "status": "PASS",
+      "notes": "landing body check",
+      "at": "2026-08-22T02:34:35.669Z"
+    },
+    {
+      "tc": "TC-002-UI",
+      "status": "PASS",
+      "notes": "plan-like text count=19",
+      "at": "2026-08-22T02:34:37.686Z"
+    },
+    {
+      "tc": "TC-004",
+      "status": "PASS",
+      "notes": "https://field-worker-system.vercel.app/login",
+      "at": "2026-08-22T02:34:38.089Z"
+    },
+    {
+      "tc": "TC-006-UI",
+      "status": "PASS",
+      "notes": "https://field-worker-system.vercel.app/admin",
+      "at": "2026-08-22T02:34:40.691Z"
+    },
+    {
+      "tc": "TC-013-UI",
+      "status": "PASS",
+      "notes": "https://field-worker-system.vercel.app/super-admin",
+      "at": "2026-08-22T02:34:43.518Z"
+    },
+    {
+      "tc": "TC-014-UI",
+      "status": "PASS",
+      "notes": "https://field-worker-system.vercel.app/worker",
+      "at": "2026-08-22T02:34:46.140Z"
+    },
+    {
+      "tc": "TC-010-UI",
+      "status": "PASS",
+      "notes": "errors=1 url=https://field-worker-system.vercel.app/login",
+      "at": "2026-08-22T02:34:49.799Z"
+    }
+  ]
+}
