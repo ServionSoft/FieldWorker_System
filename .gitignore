@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+dist-ssr/
+backend/dist/
+*.local
+
+# Env (never commit secrets)
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Runtime / local artifacts
+backend/uploads/
+backend/email-delivery-receipts.jsonl
+*.zip
+*.log
+*.tsbuildinfo
+coverage/
+.nyc_output/
+
+# Editor / OS / local tooling
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.cursor/
