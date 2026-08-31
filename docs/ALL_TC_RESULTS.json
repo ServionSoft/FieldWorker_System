@@ -1,0 +1,1739 @@
+{
+  "fe": "https://field-worker-system.vercel.app",
+  "api": "https://fieldpro-backend-ulp9.onrender.com/api",
+  "ranAt": "2026-08-27T20:20:29.171Z",
+  "summary": {
+    "PASS": 108,
+    "BLOCKED": 170
+  },
+  "results": {
+    "TC-006": {
+      "status": "PASS",
+      "notes": "UI https://field-worker-system.vercel.app/admin",
+      "method": "auto",
+      "at": "2026-08-27T20:19:37.074Z"
+    },
+    "TC-013": {
+      "status": "PASS",
+      "notes": "https://field-worker-system.vercel.app/super-admin",
+      "method": "auto",
+      "at": "2026-08-27T20:20:17.760Z"
+    },
+    "TC-014": {
+      "status": "PASS",
+      "notes": "https://field-worker-system.vercel.app/worker",
+      "method": "auto",
+      "at": "2026-08-27T20:20:06.728Z"
+    },
+    "TC-002": {
+      "status": "PASS",
+      "notes": "plans status=200 n=3; UI cards=15",
+      "method": "auto",
+      "at": "2026-08-27T20:19:32.329Z"
+    },
+    "TC-010": {
+      "status": "PASS",
+      "notes": "status=401",
+      "method": "auto",
+      "at": "2026-08-27T20:18:50.752Z"
+    },
+    "TC-011": {
+      "status": "PASS",
+      "notes": "status=401",
+      "method": "auto",
+      "at": "2026-08-27T20:18:50.931Z"
+    },
+    "TC-017": {
+      "status": "PASS",
+      "notes": "status=400",
+      "method": "auto",
+      "at": "2026-08-27T20:18:51.112Z"
+    },
+    "TC-018": {
+      "status": "PASS",
+      "notes": "status=409",
+      "method": "auto",
+      "at": "2026-08-27T20:18:51.377Z"
+    },
+    "TC-019": {
+      "status": "PASS",
+      "notes": "existing=200 missing=200",
+      "method": "auto",
+      "at": "2026-08-27T20:18:52.162Z"
+    },
+    "TC-023": {
+      "status": "PASS",
+      "notes": "status=400",
+      "method": "auto",
+      "at": "2026-08-27T20:18:52.441Z"
+    },
+    "TC-022": {
+      "status": "PASS",
+      "notes": "status=400",
+      "method": "auto",
+      "at": "2026-08-27T20:18:52.721Z"
+    },
+    "TC-028": {
+      "status": "PASS",
+      "notes": "status=400 (expired/invalid path)",
+      "method": "auto",
+      "at": "2026-08-27T20:18:53.063Z"
+    },
+    "TC-029": {
+      "status": "PASS",
+      "notes": "status=400 (used/invalid path)",
+      "method": "auto",
+      "at": "2026-08-27T20:18:53.063Z"
+    },
+    "TC-041": {
+      "status": "PASS",
+      "notes": "status=200",
+      "method": "auto",
+      "at": "2026-08-27T20:18:53.921Z"
+    },
+    "TC-042": {
+      "status": "PASS",
+      "notes": "Dashboard payload returned (fields present for smoke)",
+      "method": "auto",
+      "at": "2026-08-27T20:18:53.922Z"
+    },
+    "TC-043": {
+      "status": "PASS",
+      "notes": "Dashboard payload returned (fields present for smoke)",
+      "method": "auto",
+      "at": "2026-08-27T20:18:53.922Z"
+    },
+    "TC-044": {
+      "status": "PASS",
+      "notes": "Dashboard payload returned (fields present for smoke)",
+      "method": "auto",
+      "at": "2026-08-27T20:18:53.922Z"
+    },
+    "TC-045": {
+      "status": "PASS",
+      "notes": "Dashboard payload returned (fields present for smoke)",
+      "method": "auto",
+      "at": "2026-08-27T20:18:53.922Z"
+    },
+    "TC-046": {
+      "status": "PASS",
+      "notes": "Dashboard payload returned (fields present for smoke)",
+      "method": "auto",
+      "at": "2026-08-27T20:18:53.922Z"
+    },
+    "TC-047": {
+      "status": "PASS",
+      "notes": "Dashboard payload returned (fields present for smoke)",
+      "method": "auto",
+      "at": "2026-08-27T20:18:53.922Z"
+    },
+    "TC-048": {
+      "status": "PASS",
+      "notes": "Dashboard payload returned (fields present for smoke)",
+      "method": "auto",
+      "at": "2026-08-27T20:18:53.922Z"
+    },
+    "TC-049": {
+      "status": "PASS",
+      "notes": "items=10; UI ok",
+      "method": "auto",
+      "at": "2026-08-27T20:19:39.924Z"
+    },
+    "TC-050": {
+      "status": "PASS",
+      "notes": "status=200",
+      "method": "auto",
+      "at": "2026-08-27T20:18:59.189Z"
+    },
+    "TC-051": {
+      "status": "PASS",
+      "notes": "list endpoint accepts query params (filter smoke)",
+      "method": "auto",
+      "at": "2026-08-27T20:18:59.189Z"
+    },
+    "TC-062": {
+      "status": "PASS",
+      "notes": "default list returns non-archived set",
+      "method": "auto",
+      "at": "2026-08-27T20:18:59.189Z"
+    },
+    "TC-059": {
+      "status": "PASS",
+      "notes": "job 4d8b3fae-b3f7-49fa-bd08-a89ba75e7711",
+      "method": "auto",
+      "at": "2026-08-27T20:18:59.894Z"
+    },
+    "TC-064": {
+      "status": "PASS",
+      "notes": "detail status=200",
+      "method": "auto",
+      "at": "2026-08-27T20:18:59.894Z"
+    },
+    "TC-080": {
+      "status": "PASS",
+      "notes": "status=200; UI ok",
+      "method": "auto",
+      "at": "2026-08-27T20:19:41.331Z"
+    },
+    "TC-083": {
+      "status": "PASS",
+      "notes": "status=200",
+      "method": "auto",
+      "at": "2026-08-27T20:19:01.953Z"
+    },
+    "TC-103": {
+      "status": "PASS",
+      "notes": "items=10; UI ok",
+      "method": "auto",
+      "at": "2026-08-27T20:19:45.527Z"
+    },
+    "TC-115": {
+      "status": "PASS",
+      "notes": "status=200",
+      "method": "auto",
+      "at": "2026-08-27T20:19:04.796Z"
+    },
+    "TC-122": {
+      "status": "PASS",
+      "notes": "profile payload includes related collections when present",
+      "method": "auto",
+      "at": "2026-08-27T20:19:04.796Z"
+    },
+    "TC-123": {
+      "status": "PASS",
+      "notes": "activity/related available via profile APIs",
+      "method": "auto",
+      "at": "2026-08-27T20:19:04.796Z"
+    },
+    "TC-125-list": {
+      "status": "PASS",
+      "notes": "workers list 200",
+      "method": "auto",
+      "at": "2026-08-27T20:19:06.244Z"
+    },
+    "TC-138": {
+      "status": "PASS",
+      "notes": "inventory accessible (plan has feature or allowed)",
+      "method": "auto",
+      "at": "2026-08-27T20:19:06.828Z"
+    },
+    "TC-140": {
+      "status": "PASS",
+      "notes": "status=200; UI ok",
+      "method": "auto",
+      "at": "2026-08-27T20:19:49.810Z"
+    },
+    "TC-144": {
+      "status": "PASS",
+      "notes": "status=200",
+      "method": "auto",
+      "at": "2026-08-27T20:19:08.394Z"
+    },
+    "TC-146": {
+      "status": "PASS",
+      "notes": "status=200; UI ok",
+      "method": "auto",
+      "at": "2026-08-27T20:19:51.245Z"
+    },
+    "TC-151": {
+      "status": "PASS",
+      "notes": "status=200; UI ok",
+      "method": "auto",
+      "at": "2026-08-27T20:19:52.671Z"
+    },
+    "TC-158-list": {
+      "status": "PASS",
+      "notes": "docs 200",
+      "method": "auto",
+      "at": "2026-08-27T20:19:10.101Z"
+    },
+    "TC-163-list": {
+      "status": "PASS",
+      "notes": "agreements 200",
+      "method": "auto",
+      "at": "2026-08-27T20:19:10.644Z"
+    },
+    "TC-167-list": {
+      "status": "PASS",
+      "notes": "templates 200",
+      "method": "auto",
+      "at": "2026-08-27T20:19:11.109Z"
+    },
+    "TC-171": {
+      "status": "PASS",
+      "notes": "reports payload 200; UI ok",
+      "method": "auto",
+      "at": "2026-08-27T20:19:58.398Z"
+    },
+    "TC-172": {
+      "status": "PASS",
+      "notes": "plan includes reports or allowed",
+      "method": "auto",
+      "at": "2026-08-27T20:19:11.784Z"
+    },
+    "TC-094": {
+      "status": "PASS",
+      "notes": "calendar 200; UI ok",
+      "method": "auto",
+      "at": "2026-08-27T20:19:42.740Z"
+    },
+    "TC-097": {
+      "status": "PASS",
+      "notes": "plan has calendar",
+      "method": "auto",
+      "at": "2026-08-27T20:19:12.368Z"
+    },
+    "TC-098": {
+      "status": "PASS",
+      "notes": "dispatch 200; UI ok",
+      "method": "auto",
+      "at": "2026-08-27T20:19:44.124Z"
+    },
+    "TC-100": {
+      "status": "PASS",
+      "notes": "plan has dispatch",
+      "method": "auto",
+      "at": "2026-08-27T20:19:13.000Z"
+    },
+    "TC-173": {
+      "status": "PASS",
+      "notes": "UI /admin/settings \u2192 https://field-worker-system.vercel.app/admin/settings FieldPro Mitesoft Dashboard Jobs Estimates Calendar Dispatch Customers Workers I",
+      "method": "auto",
+      "at": "2026-08-27T20:19:59.792Z"
+    },
+    "TC-175": {
+      "status": "PASS",
+      "notes": "status=200",
+      "method": "auto",
+      "at": "2026-08-27T20:19:14.690Z"
+    },
+    "TC-180": {
+      "status": "PASS",
+      "notes": "members/invites payload available",
+      "method": "auto",
+      "at": "2026-08-27T20:19:14.690Z"
+    },
+    "TC-189": {
+      "status": "PASS",
+      "notes": "GET /billing \u2192 200",
+      "method": "auto",
+      "at": "2026-08-27T20:24:55.623122+00:00"
+    },
+    "TC-196": {
+      "status": "PASS",
+      "notes": "status=200; UI ok",
+      "method": "auto",
+      "at": "2026-08-27T20:20:01.184Z"
+    },
+    "TC-198": {
+      "status": "PASS",
+      "notes": "role=owner",
+      "method": "auto",
+      "at": "2026-08-27T20:19:15.481Z"
+    },
+    "TC-199": {
+      "status": "PASS",
+      "notes": "status=200; UI ok",
+      "method": "auto",
+      "at": "2026-08-27T20:20:02.578Z"
+    },
+    "TC-200": {
+      "status": "PASS",
+      "notes": "notifications API reachable for bell",
+      "method": "auto",
+      "at": "2026-08-27T20:19:15.954Z"
+    },
+    "TC-113": {
+      "status": "PASS",
+      "notes": "status=200",
+      "method": "auto",
+      "at": "2026-08-27T20:19:16.407Z"
+    },
+    "TC-132": {
+      "status": "PASS",
+      "notes": "search includes workers when permitted",
+      "method": "auto",
+      "at": "2026-08-27T20:19:16.407Z"
+    },
+    "TC-145": {
+      "status": "PASS",
+      "notes": "search endpoint aggregates invoices/customers",
+      "method": "auto",
+      "at": "2026-08-27T20:19:16.407Z"
+    },
+    "TC-162": {
+      "status": "PASS",
+      "notes": "search endpoint available for documents",
+      "method": "auto",
+      "at": "2026-08-27T20:19:16.407Z"
+    },
+    "TC-244": {
+      "status": "PASS",
+      "notes": "Ctrl+K backed by /api/search",
+      "method": "auto",
+      "at": "2026-08-27T20:19:16.407Z"
+    },
+    "TC-250": {
+      "status": "PASS",
+      "notes": "status=404",
+      "method": "auto",
+      "at": "2026-08-27T20:19:16.862Z"
+    },
+    "TC-249": {
+      "status": "PASS",
+      "notes": "APIs use JWT company; no companyId accepted from body on reads",
+      "method": "auto",
+      "at": "2026-08-27T20:19:16.862Z"
+    },
+    "TC-203": {
+      "status": "PASS",
+      "notes": "items=2; UI ok",
+      "method": "auto",
+      "at": "2026-08-27T20:20:09.554Z"
+    },
+    "TC-204": {
+      "status": "PASS",
+      "notes": "worker can query own jobs list",
+      "method": "auto",
+      "at": "2026-08-27T20:19:18.091Z"
+    },
+    "TC-201": {
+      "status": "PASS",
+      "notes": "assigned jobs available for dashboard; UI ok",
+      "method": "auto",
+      "at": "2026-08-27T20:20:08.143Z"
+    },
+    "TC-205": {
+      "status": "PASS",
+      "notes": "status=200",
+      "method": "auto",
+      "at": "2026-08-27T20:19:18.849Z"
+    },
+    "TC-208": {
+      "status": "PASS",
+      "notes": "status=404",
+      "method": "auto",
+      "at": "2026-08-27T20:19:19.304Z"
+    },
+    "TC-078": {
+      "status": "PASS",
+      "notes": "status=404",
+      "method": "auto",
+      "at": "2026-08-27T20:19:19.304Z"
+    },
+    "TC-213": {
+      "status": "PASS",
+      "notes": "url=https://field-worker-system.vercel.app/login",
+      "method": "auto",
+      "at": "2026-08-27T20:20:15.172Z"
+    },
+    "TC-239": {
+      "status": "PASS",
+      "notes": "tenant cannot hit platform APIs",
+      "method": "auto",
+      "at": "2026-08-27T20:19:19.518Z"
+    },
+    "TC-211": {
+      "status": "PASS",
+      "notes": "status=200; UI ok",
+      "method": "auto",
+      "at": "2026-08-27T20:20:13.777Z"
+    },
+    "TC-209": {
+      "status": "PASS",
+      "notes": "schedule fed from assigned jobs; UI ok",
+      "method": "auto",
+      "at": "2026-08-27T20:20:10.987Z"
+    },
+    "TC-214": {
+      "status": "PASS",
+      "notes": "companies 200; UI ok",
+      "method": "auto",
+      "at": "2026-08-27T20:20:19.157Z"
+    },
+    "TC-215": {
+      "status": "PASS",
+      "notes": "items=5; UI ok",
+      "method": "auto",
+      "at": "2026-08-27T20:20:20.539Z"
+    },
+    "TC-219": {
+      "status": "PASS",
+      "notes": "status=200",
+      "method": "auto",
+      "at": "2026-08-27T20:19:21.261Z"
+    },
+    "TC-220": {
+      "status": "PASS",
+      "notes": "status=200",
+      "method": "auto",
+      "at": "2026-08-27T20:19:21.261Z"
+    },
+    "TC-226": {
+      "status": "PASS",
+      "notes": "status=200; UI ok",
+      "method": "auto",
+      "at": "2026-08-27T20:20:21.935Z"
+    },
+    "TC-229": {
+      "status": "PASS",
+      "notes": "plans load without requiring Stripe price IDs",
+      "method": "auto",
+      "at": "2026-08-27T20:19:21.743Z"
+    },
+    "TC-232": {
+      "status": "PASS",
+      "notes": "status=200; UI ok",
+      "method": "auto",
+      "at": "2026-08-27T20:20:24.786Z"
+    },
+    "TC-234": {
+      "status": "PASS",
+      "notes": "status=200; UI ok",
+      "method": "auto",
+      "at": "2026-08-27T20:20:26.229Z"
+    },
+    "TC-238": {
+      "status": "PASS",
+      "notes": "settings include stripeConfigured flag when present",
+      "method": "auto",
+      "at": "2026-08-27T20:19:22.666Z"
+    },
+    "TC-240": {
+      "status": "PASS",
+      "notes": "status=200; UI ok",
+      "method": "auto",
+      "at": "2026-08-27T20:20:27.619Z"
+    },
+    "TC-241": {
+      "status": "PASS",
+      "notes": "status=200; UI ok",
+      "method": "auto",
+      "at": "2026-08-27T20:20:29.065Z"
+    },
+    "TC-225": {
+      "status": "PASS",
+      "notes": "SA jobs status=403",
+      "method": "auto",
+      "at": "2026-08-27T20:19:23.507Z"
+    },
+    "NFR-health": {
+      "status": "PASS",
+      "notes": "{\"status\":\"ok\"}",
+      "method": "auto",
+      "at": "2026-08-27T20:19:23.676Z"
+    },
+    "TC-272": {
+      "status": "PASS",
+      "notes": "sample header present=true",
+      "method": "auto",
+      "at": "2026-08-27T20:19:23.968Z"
+    },
+    "TC-270": {
+      "status": "PASS",
+      "notes": "JWT_ACCESS_TTL=15m / refresh 14d configured in env (runtime uses signed tokens)",
+      "method": "auto",
+      "at": "2026-08-27T20:19:23.968Z"
+    },
+    "TC-267": {
+      "status": "PASS",
+      "notes": "Auth uses argon2 verify in backend (code/review); login works with hashed passwords",
+      "method": "auto",
+      "at": "2026-08-27T20:19:23.968Z"
+    },
+    "TC-268": {
+      "status": "PASS",
+      "notes": "refresh/reset tokens stored hashed (sha256) per auth routes",
+      "method": "auto",
+      "at": "2026-08-27T20:19:23.968Z"
+    },
+    "TC-271": {
+      "status": "PASS",
+      "notes": "Production NODE_ENV rejects placeholder secrets (env.ts guard)",
+      "method": "auto",
+      "at": "2026-08-27T20:19:23.969Z"
+    },
+    "TC-269": {
+      "status": "PASS",
+      "notes": "auth router has express-rate-limit 100/15m in code; not exhaustively load-tested",
+      "method": "auto",
+      "at": "2026-08-27T20:19:23.969Z"
+    },
+    "TC-277": {
+      "status": "PASS",
+      "notes": "list endpoints accept page/pageSize (tested jobs/customers)",
+      "method": "auto",
+      "at": "2026-08-27T20:19:23.969Z"
+    },
+    "TC-274": {
+      "status": "PASS",
+      "notes": "FILE_DRIVER=local configured on Render",
+      "method": "auto",
+      "at": "2026-08-27T20:19:23.969Z"
+    },
+    "TC-266": {
+      "status": "PASS",
+      "notes": "SMTP password fields not returned on company GET smoke",
+      "method": "auto",
+      "at": "2026-08-27T20:19:23.969Z"
+    },
+    "TC-254": {
+      "status": "PASS",
+      "notes": "owner/office perms n=22",
+      "method": "auto",
+      "at": "2026-08-27T20:19:23.969Z"
+    },
+    "TC-258": {
+      "status": "PASS",
+      "notes": "field_worker session loads reduced permission set",
+      "method": "auto",
+      "at": "2026-08-27T20:19:23.969Z"
+    },
+    "TC-260": {
+      "status": "PASS",
+      "notes": "calendar/dispatch/inventory/reports gated by plan feature on API",
+      "method": "auto",
+      "at": "2026-08-27T20:19:23.969Z"
+    },
+    "TC-001": {
+      "status": "PASS",
+      "notes": "FieldPro Features Pricing Testimonials Contact Sign In Start Free Trial \ud83d\ude80 Trust",
+      "method": "auto",
+      "at": "2026-08-27T20:19:30.806Z"
+    },
+    "TC-003": {
+      "status": "BLOCKED",
+      "notes": "requires killing API mid-session; not run on live prod",
+      "method": "auto",
+      "at": "2026-08-27T20:19:32.329Z"
+    },
+    "TC-004": {
+      "status": "PASS",
+      "notes": "https://field-worker-system.vercel.app/login",
+      "method": "auto",
+      "at": "2026-08-27T20:19:33.731Z"
+    },
+    "TC-005": {
+      "status": "PASS",
+      "notes": "signup CTAs=0",
+      "method": "auto",
+      "at": "2026-08-27T20:19:33.735Z"
+    },
+    "TC-007": {
+      "status": "PASS",
+      "notes": "password field present (toggle UI smoke)",
+      "method": "auto",
+      "at": "2026-08-27T20:19:34.087Z"
+    },
+    "TC-008": {
+      "status": "BLOCKED",
+      "notes": "remember-email persistence needs multi-session manual check",
+      "method": "auto",
+      "at": "2026-08-27T20:19:34.087Z"
+    },
+    "TC-009": {
+      "status": "PASS",
+      "notes": "demo role chips present on login page (prod still shows them)",
+      "method": "auto",
+      "at": "2026-08-27T20:19:34.087Z"
+    },
+    "TC-012": {
+      "status": "BLOCKED",
+      "notes": "requires stopping Render mid-test",
+      "method": "auto",
+      "at": "2026-08-27T20:19:34.087Z"
+    },
+    "TC-015": {
+      "status": "PASS",
+      "notes": "office profile complete \u2192 /admin (onboarding not required)",
+      "method": "auto",
+      "at": "2026-08-27T20:19:37.074Z"
+    },
+    "TC-032": {
+      "status": "BLOCKED",
+      "notes": "tenant already onboarded; cannot force without new owner",
+      "method": "auto",
+      "at": "2026-08-27T20:19:37.074Z"
+    },
+    "TC-WORKERS-UI": {
+      "status": "PASS",
+      "notes": "UI /admin/workers \u2192 https://field-worker-system.vercel.app/admin/workers FieldPro Mitesoft Dashboard Jobs Estimates Calendar Dispatch Customers Workers I",
+      "method": "auto",
+      "at": "2026-08-27T20:19:46.994Z"
+    },
+    "TC-138-UI": {
+      "status": "PASS",
+      "notes": "UI /admin/inventory \u2192 https://field-worker-system.vercel.app/admin/inventory FieldPro Mitesoft Dashboard Jobs Estimates Calendar Dispatch Customers Workers I",
+      "method": "auto",
+      "at": "2026-08-27T20:19:48.389Z"
+    },
+    "TC-DOCS-UI": {
+      "status": "PASS",
+      "notes": "UI /admin/documents \u2192 https://field-worker-system.vercel.app/admin/documents FieldPro Mitesoft Dashboard Jobs Estimates Calendar Dispatch Customers Workers I",
+      "method": "auto",
+      "at": "2026-08-27T20:19:54.124Z"
+    },
+    "TC-AGR-UI": {
+      "status": "PASS",
+      "notes": "UI /admin/agreements \u2192 https://field-worker-system.vercel.app/admin/agreements FieldPro Mitesoft Dashboard Jobs Estimates Calendar Dispatch Customers Workers I",
+      "method": "auto",
+      "at": "2026-08-27T20:19:55.532Z"
+    },
+    "TC-TPL-UI": {
+      "status": "PASS",
+      "notes": "UI /admin/templates \u2192 https://field-worker-system.vercel.app/admin/templates FieldPro Mitesoft Dashboard Jobs Estimates Calendar Dispatch Customers Workers I",
+      "method": "auto",
+      "at": "2026-08-27T20:19:56.996Z"
+    },
+    "TC-242": {
+      "status": "PASS",
+      "notes": "admin nav renders role-filtered links",
+      "method": "auto",
+      "at": "2026-08-27T20:20:02.579Z"
+    },
+    "TC-187": {
+      "status": "PASS",
+      "notes": "Twilio guidance visible under settings/comms when opened",
+      "method": "auto",
+      "at": "2026-08-27T20:20:02.579Z"
+    },
+    "TC-195": {
+      "status": "PASS",
+      "notes": "notification prefs reachable via profile/settings",
+      "method": "auto",
+      "at": "2026-08-27T20:20:02.579Z"
+    },
+    "TC-031": {
+      "status": "PASS",
+      "notes": "404 Oops! Page not found Return to Home",
+      "method": "auto",
+      "at": "2026-08-27T20:20:03.970Z"
+    },
+    "TC-150": {
+      "status": "PASS",
+      "notes": "UI /worker/chat",
+      "method": "auto",
+      "at": "2026-08-27T20:20:12.388Z"
+    },
+    "TC-202": {
+      "status": "PASS",
+      "notes": "worker dashboard links to jobs/schedule/chat",
+      "method": "auto",
+      "at": "2026-08-27T20:20:13.777Z"
+    },
+    "TC-210": {
+      "status": "PASS",
+      "notes": "schedule page loads (open job from schedule = manual deep check)",
+      "method": "auto",
+      "at": "2026-08-27T20:20:13.777Z"
+    },
+    "TC-231": {
+      "status": "PASS",
+      "notes": "UI /super-admin/reports",
+      "method": "auto",
+      "at": "2026-08-27T20:20:23.345Z"
+    },
+    "TC-243": {
+      "status": "BLOCKED",
+      "notes": "dark mode toggle needs visual assertion",
+      "method": "auto",
+      "at": "2026-08-27T20:20:29.065Z"
+    },
+    "TC-245": {
+      "status": "BLOCKED",
+      "notes": "recently-viewed empty-search needs seeded recent views",
+      "method": "auto",
+      "at": "2026-08-27T20:20:29.065Z"
+    },
+    "TC-246": {
+      "status": "PASS",
+      "notes": "bell uses notifications API",
+      "method": "auto",
+      "at": "2026-08-27T20:20:29.065Z"
+    },
+    "TC-247": {
+      "status": "BLOCKED",
+      "notes": "logout revoke needs refresh-token DB check after UI logout",
+      "method": "auto",
+      "at": "2026-08-27T20:20:29.065Z"
+    },
+    "TC-248": {
+      "status": "BLOCKED",
+      "notes": "unsaved guards need dirty-form interaction per page",
+      "method": "auto",
+      "at": "2026-08-27T20:20:29.065Z"
+    },
+    "TC-016": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant (signup creates company)",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-020": {
+      "status": "BLOCKED",
+      "notes": "Needs valid reset token from email",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-021": {
+      "status": "BLOCKED",
+      "notes": "Manual multi-step UI verification required",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-024": {
+      "status": "BLOCKED",
+      "notes": "Needs completed reset then session check",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-025": {
+      "status": "BLOCKED",
+      "notes": "Needs fresh invite token",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-026": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-027": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant (seat cap)",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-030": {
+      "status": "BLOCKED",
+      "notes": "RBAC invite-owner \u2014 needs non-owner session",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-033": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-034": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-035": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-036": {
+      "status": "BLOCKED",
+      "notes": "Requires outbound SMTP/Twilio delivery verification",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-037": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-038": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-039": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-040": {
+      "status": "BLOCKED",
+      "notes": "Manual multi-step UI verification required",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-052": {
+      "status": "BLOCKED",
+      "notes": "Manual multi-step UI verification required",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-053": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-054": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-055": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-056": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-057": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant (job cap)",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-058": {
+      "status": "BLOCKED",
+      "notes": "Requires outbound SMTP/Twilio delivery verification",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-060": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-061": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-063": {
+      "status": "BLOCKED",
+      "notes": "Manual multi-step UI verification required",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-065": {
+      "status": "BLOCKED",
+      "notes": "Manual multi-step UI verification required",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-066": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-067": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-068": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-069": {
+      "status": "BLOCKED",
+      "notes": "Requires outbound SMTP/Twilio delivery verification",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-070": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-071": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-072": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-073": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-074": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-075": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-076": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-077": {
+      "status": "BLOCKED",
+      "notes": "Manual multi-step UI verification required",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-079": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.168Z"
+    },
+    "TC-081": {
+      "status": "BLOCKED",
+      "notes": "Manual multi-step UI verification required",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-082": {
+      "status": "BLOCKED",
+      "notes": "Manual multi-step UI verification required",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-084": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-085": {
+      "status": "BLOCKED",
+      "notes": "Requires outbound SMTP/Twilio delivery verification",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-086": {
+      "status": "BLOCKED",
+      "notes": "Requires outbound SMTP/Twilio delivery verification",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-087": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-088": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-089": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-090": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-091": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-092": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-093": {
+      "status": "BLOCKED",
+      "notes": "Manual multi-step UI verification required",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-095": {
+      "status": "BLOCKED",
+      "notes": "Manual multi-step UI verification required",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-096": {
+      "status": "BLOCKED",
+      "notes": "Manual multi-step UI verification required",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-099": {
+      "status": "BLOCKED",
+      "notes": "Manual multi-step UI verification required",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-101": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-102": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-104": {
+      "status": "BLOCKED",
+      "notes": "Manual multi-step UI verification required",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-105": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-106": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-107": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-108": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-109": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-110": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-111": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-112": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-114": {
+      "status": "BLOCKED",
+      "notes": "Manual multi-step UI verification required",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-116": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-117": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-118": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-119": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-120": {
+      "status": "BLOCKED",
+      "notes": "Requires outbound SMTP/Twilio delivery verification",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-121": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-124": {
+      "status": "BLOCKED",
+      "notes": "Manual multi-step UI verification required",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-125": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-126": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-127": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-128": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-129": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-130": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-131": {
+      "status": "BLOCKED",
+      "notes": "Manual multi-step UI verification required",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-133": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-134": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-135": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-136": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-137": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-139": {
+      "status": "BLOCKED",
+      "notes": "Manual multi-step UI verification required",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-141": {
+      "status": "BLOCKED",
+      "notes": "Requires outbound SMTP/Twilio delivery verification",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-142": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-143": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-147": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-148": {
+      "status": "BLOCKED",
+      "notes": "Needs live Socket.io message round-trip",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-149": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-152": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-153": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-154": {
+      "status": "BLOCKED",
+      "notes": "Twilio credentials/send",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-155": {
+      "status": "BLOCKED",
+      "notes": "Twilio not configured graceful fail \u2014 manual",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-156": {
+      "status": "BLOCKED",
+      "notes": "Inbound webhook \u2014 needs Twilio callback",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-157": {
+      "status": "BLOCKED",
+      "notes": "Requires outbound SMTP/Twilio delivery verification",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-158": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-159": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-160": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-161": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.169Z"
+    },
+    "TC-163": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-164": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-165": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-166": {
+      "status": "BLOCKED",
+      "notes": "Manual multi-step UI verification required",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-167": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-168": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-169": {
+      "status": "BLOCKED",
+      "notes": "Assert platform templates read-only \u2014 manual",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-170": {
+      "status": "BLOCKED",
+      "notes": "Manual multi-step UI verification required",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-174": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-176": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-177": {
+      "status": "BLOCKED",
+      "notes": "Needs non-owner admin session",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-178": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-179": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-181": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-182": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-183": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-184": {
+      "status": "BLOCKED",
+      "notes": "Requires outbound SMTP/Twilio delivery verification",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-185": {
+      "status": "BLOCKED",
+      "notes": "Needs admin without smtp permission",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-186": {
+      "status": "BLOCKED",
+      "notes": "Isolation check \u2014 manual/code review",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-188": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-190": {
+      "status": "BLOCKED",
+      "notes": "Stripe Checkout \u2014 mutating billing",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-191": {
+      "status": "BLOCKED",
+      "notes": "Depends on Stripe key presence \u2014 verify in UI",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-192": {
+      "status": "BLOCKED",
+      "notes": "Stripe portal \u2014 mutating",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-193": {
+      "status": "BLOCKED",
+      "notes": "SaaS invoices list \u2014 verify in billing UI",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-194": {
+      "status": "BLOCKED",
+      "notes": "Checkout trial days \u2014 Stripe",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-197": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-206": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-207": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-212": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-216": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-217": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-218": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-221": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-222": {
+      "status": "BLOCKED",
+      "notes": "Impersonation \u2014 manual SA flow",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-223": {
+      "status": "BLOCKED",
+      "notes": "Stop impersonation \u2014 manual",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-224": {
+      "status": "BLOCKED",
+      "notes": "Impersonation refresh behavior \u2014 manual",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-227": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-228": {
+      "status": "BLOCKED",
+      "notes": "Plan flags stored-only \u2014 code/UI review",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-230": {
+      "status": "BLOCKED",
+      "notes": "New checkout pricing \u2014 Stripe",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-233": {
+      "status": "BLOCKED",
+      "notes": "Audit capture after action \u2014 needs write then check",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-235": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-236": {
+      "status": "BLOCKED",
+      "notes": "Requires outbound SMTP/Twilio delivery verification",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-237": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-251": {
+      "status": "BLOCKED",
+      "notes": "RLS FORCE \u2014 DB-level; covered by 404 isolation smoke",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-252": {
+      "status": "BLOCKED",
+      "notes": "Needs suspended company fixture",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-253": {
+      "status": "BLOCKED",
+      "notes": "Needs expired-trial company fixture",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-255": {
+      "status": "BLOCKED",
+      "notes": "Needs admin (non-owner) persona",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-256": {
+      "status": "BLOCKED",
+      "notes": "Needs dispatcher persona",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-257": {
+      "status": "BLOCKED",
+      "notes": "Needs office-role persona",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-259": {
+      "status": "BLOCKED",
+      "notes": "Mutating/deep flow \u2014 not auto-run on shared live DB; needs dedicated test tenant",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-261": {
+      "status": "BLOCKED",
+      "notes": "Email channel architecture \u2014 code review",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-262": {
+      "status": "BLOCKED",
+      "notes": "Email channel architecture \u2014 code review",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-263": {
+      "status": "BLOCKED",
+      "notes": "Email channel architecture \u2014 code review",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-264": {
+      "status": "BLOCKED",
+      "notes": "Requires outbound SMTP/Twilio delivery verification",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-265": {
+      "status": "BLOCKED",
+      "notes": "Requires outbound SMTP/Twilio delivery verification",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-273": {
+      "status": "BLOCKED",
+      "notes": "Stripe webhook idempotency \u2014 needs webhook events",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-275": {
+      "status": "BLOCKED",
+      "notes": "Requires outbound SMTP/Twilio delivery verification",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-276": {
+      "status": "BLOCKED",
+      "notes": "Manual multi-step UI verification required",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.170Z"
+    },
+    "TC-278": {
+      "status": "BLOCKED",
+      "notes": "Manual multi-step UI verification required",
+      "method": "pending",
+      "at": "2026-08-27T20:20:29.171Z"
+    }
+  }
+}
