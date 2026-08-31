@@ -1,4 +1,5 @@
 import http from 'node:http';
+import dns from 'node:dns';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -6,6 +7,9 @@ import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { Server } from 'socket.io';
 import { env, corsOrigins } from './config/env.js';
+
+// Prefer A records; cloud SMTP often fails on AAAA (ENETUNREACH) without IPv6 egress.
+dns.setDefaultResultOrder('ipv4first');
 import { errorHandler } from './middleware/error.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { customersRouter } from './modules/customers/customers.routes.js';

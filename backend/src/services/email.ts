@@ -1,5 +1,7 @@
 import nodemailer from 'nodemailer';
 import type { PoolClient } from 'pg';
+import dns from 'node:dns/promises';
+import net from 'node:net';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -47,32 +49,63 @@ export const TENANT_TEMPLATE_TYPES = [
 ] as const;
 export type TenantTemplateType = (typeof TENANT_TEMPLATE_TYPES)[number];
 
-function smtpTransportOptions(cfg: SmtpConfig) {
+/**
+ * Render and many cloud hosts have no IPv6 egress. Nodemailer 9 may pick an AAAA
+ * record and fail with ENETUNREACH. Resolve A records only and keep the hostname
+ * as TLS servername.
+ */
+async function resolveSmtpIpv4(host: string): Promise<{ host: string; servername?: string }> {
+  const trimmed = String(host || '').trim();
+  if (!trimmed) return { host: trimmed };
+  if (net.isIPv4(trimmed)) return { host: trimmed };
+  if (net.isIPv6(trimmed)) {
+    throw new Error('SMTP host is an IPv6 address; this environment only supports IPv4. Use a hostname or IPv4 address.');
+  }
+  try {
+    const addresses = await dns.resolve4(trimmed);
+    if (addresses[0]) return { host: addresses[0], servername: trimmed };
+  } catch {
+    /* try lookup next */
+  }
+  const lookedUp = await dns.lookup(trimmed, { family: 4 });
+  return { host: lookedUp.address, servername: trimmed };
+}
+
+async function smtpTransportOptions(cfg: SmtpConfig) {
   const port = Number(cfg.port) || 587;
   const implicitTls = port === 465;
   const wantTls = cfg.secure || implicitTls;
+  const resolved = await resolveSmtpIpv4(cfg.host);
   return {
-    host: cfg.host,
+    host: resolved.host,
+    servername: resolved.servername,
     port,
     secure: implicitTls,
     requireTLS: !implicitTls && wantTls,
     auth: cfg.user ? { user: cfg.user, pass: cfg.password || undefined } : undefined,
-    tls: { minVersion: 'TLSv1.2' as const },
+    tls: {
+      minVersion: 'TLSv1.2' as const,
+      servername: resolved.servername || undefined,
+    },
     connectionTimeout: 20_000,
     greetingTimeout: 20_000,
     socketTimeout: 20_000,
-    family: 4,
+    family: 4 as const,
   };
 }
 
-function transporter(cfg: SmtpConfig) {
-  return nodemailer.createTransport(smtpTransportOptions(cfg));
+async function transporter(cfg: SmtpConfig) {
+  return nodemailer.createTransport(await smtpTransportOptions(cfg));
 }
 
 function smtpErrorMessage(err: unknown) {
   if (!err || typeof err !== 'object') return 'Send failed';
-  const e = err as { message?: string; code?: string; response?: string };
-  const detail = String(e.response || e.message || 'Send failed').slice(0, 280);
+  const e = err as { message?: string; code?: string; response?: string; syscall?: string };
+  const raw = String(e.response || e.message || 'Send failed');
+  if (e.code === 'ENETUNREACH' || /ENETUNREACH/i.test(raw)) {
+    return 'SMTP server is unreachable over IPv6 from this host. Retry after deploy (IPv4-only SMTP), or confirm outbound port 587/465 is allowed.';
+  }
+  const detail = raw.slice(0, 280);
   if (e.code && !detail.includes(e.code)) return `${e.code}: ${detail}`;
   return detail;
 }
@@ -148,8 +181,8 @@ async function deliver(channel: EmailChannel, cfg: SmtpConfig, to: string, subje
     recordReceipt({ ...base, error });
     return { ok: false, error, receipt: { ...base, error } };
   }
-  const t = transporter(cfg);
   try {
+    const t = await transporter(cfg);
     const info = await t.sendMail({
       from: fromHeader(cfg),
       replyTo: cfg.replyTo || undefined,
