@@ -426,12 +426,16 @@ platformRouter.patch('/settings', platformRoute(async (req, res, client) => {
   res.json({ ok: true });
 }));
 
-platformRouter.post('/settings/smtp/test', platformRoute(async (req, res) => {
-  const body = z.object({ to: z.string().email().optional() }).parse(req.body ?? {});
-  const result = await sendPlatformSmtpTest(body.to);
-  if (!result.ok) throw badRequest(result.error);
-  res.json({ ok: true, channel: 'platform', evidence: result.evidence });
-}));
+platformRouter.post('/settings/smtp/test', async (req, res, next) => {
+  try {
+    const body = z.object({ to: z.string().email().optional() }).parse(req.body ?? {});
+    const result = await sendPlatformSmtpTest(body.to);
+    if (!result.ok) throw badRequest(result.error);
+    res.json({ ok: true, channel: 'platform', evidence: result.evidence });
+  } catch (err) {
+    next(err);
+  }
+});
 
 platformRouter.get('/email-receipts', platformRoute(async (_req, res) => {
   if (process.env.NODE_ENV === 'production') {

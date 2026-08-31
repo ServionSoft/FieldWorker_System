@@ -116,16 +116,60 @@ const AdminSettings = () => {
 
   const saveSmtp = async () => {
     const next = applyErrors({
-      fromEmail: emailError(smtp.fromEmail),
+      host: requiredText(smtp.host, 'SMTP host'),
+      fromEmail: emailError(smtp.fromEmail, { required: true }),
+      replyTo: smtp.replyTo ? emailError(smtp.replyTo) : '',
+    });
+    setSmtpErrors(next);
+    if (Object.values(next).some(Boolean)) return false;
+    setSavingSmtp(true);
+    try {
+      await api.company.updateSmtp({
+        ...smtp,
+        host: String(smtp.host).trim(),
+        port: Number(smtp.port) || 587,
+        fromEmail: String(smtp.fromEmail).trim(),
+        replyTo: String(smtp.replyTo || '').trim(),
+      });
+      toast.success('SMTP saved');
+      return true;
+    } catch (err: any) {
+      toast.error(err?.message || 'SMTP save failed');
+      return false;
+    } finally {
+      setSavingSmtp(false);
+    }
+  };
+
+  const testSmtp = async () => {
+    const next = applyErrors({
+      host: requiredText(smtp.host, 'SMTP host'),
+      fromEmail: emailError(smtp.fromEmail, { required: true }),
+      replyTo: smtp.replyTo ? emailError(smtp.replyTo) : '',
     });
     setSmtpErrors(next);
     if (Object.values(next).some(Boolean)) return;
-    setSavingSmtp(true);
+    if (!smtp.port) {
+      toast.error('SMTP port is required before sending a test.');
+      return;
+    }
+    setTestingSmtp(true);
     try {
-      await api.company.updateSmtp(smtp);
-      toast.success('SMTP saved');
-    } catch (err: any) { toast.error(err?.message || 'SMTP save failed'); }
-    finally { setSavingSmtp(false); }
+      await api.company.updateSmtp({
+        ...smtp,
+        host: String(smtp.host).trim(),
+        port: Number(smtp.port) || 587,
+        fromEmail: String(smtp.fromEmail).trim(),
+        replyTo: String(smtp.replyTo || '').trim(),
+      });
+      await api.company.testSmtp();
+      toast.success('Company email test sent');
+      setSmtp((s) => ({ ...s, password: '' }));
+    } catch (e: any) {
+      toast.error(e?.message || 'SMTP test failed');
+    } finally {
+      setTestingSmtp(false);
+    }
   };
 
   const sendInvite = async () => {
@@ -329,20 +373,13 @@ const AdminSettings = () => {
               </div>
               <label className="flex items-center gap-2 text-sm">
                 <Checkbox checked={smtp.secure} onCheckedChange={(v) => setSmtp({ ...smtp, secure: !!v })} />
-                TLS
+                Use TLS (STARTTLS on port 587, SSL on 465)
               </label>
               <div className="flex gap-2">
-                <Button onClick={saveSmtp} disabled={savingSmtp || testingSmtp}>{savingSmtp ? 'Saving…' : 'Save SMTP'}</Button>
-                <Button variant="outline" disabled={savingSmtp || testingSmtp} onClick={async () => {
-                  if (!String(smtp.host || '').trim() || !smtp.port) {
-                    toast.error('SMTP host and port are required before sending a test.');
-                    return;
-                  }
-                  setTestingSmtp(true);
-                  try { await api.company.testSmtp(); toast.success('Company email test sent'); }
-                  catch (e: any) { toast.error(e.message); }
-                  finally { setTestingSmtp(false); }
-                }}>{testingSmtp ? 'Sending…' : 'Send test'}</Button>
+                <Button onClick={() => { void saveSmtp(); }} disabled={savingSmtp || testingSmtp}>{savingSmtp ? 'Saving…' : 'Save SMTP'}</Button>
+                <Button variant="outline" disabled={savingSmtp || testingSmtp} onClick={() => { void testSmtp(); }}>
+                  {testingSmtp ? 'Sending…' : 'Send test'}
+                </Button>
               </div>
             </CardContent>
           </Card>

@@ -4,7 +4,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { decryptSecret } from '../utils/crypto.js';
-import { pool } from '../db/pool.js';
+import { pool, withTenant } from '../db/pool.js';
+
+function tryDecryptSecret(value: string | null | undefined): { ok: true; password: string | null } | { ok: false; error: string } {
+  if (!value) return { ok: true, password: null };
+  try {
+    return { ok: true, password: decryptSecret(value) };
+  } catch {
+    return { ok: false, error: 'SMTP password could not be decrypted. Re-save the SMTP password, then try again.' };
+  }
+}
 
 export type SmtpConfig = {
   host: string;
@@ -173,11 +182,13 @@ export async function loadPlatformSmtp(): Promise<SmtpConfig | null> {
   const { rows } = await pool.query(`SELECT * FROM platform_settings WHERE id = 1`);
   const s = rows[0];
   if (!s?.smtp_host || !s?.smtp_from_email) return null;
+  const decrypted = tryDecryptSecret(s.smtp_password_enc);
+  if (!decrypted.ok) throw new Error(decrypted.error);
   return {
     host: s.smtp_host,
     port: s.smtp_port || 587,
     user: s.smtp_user,
-    password: s.smtp_password_enc ? decryptSecret(s.smtp_password_enc) : null,
+    password: decrypted.password,
     secure: !!s.smtp_secure,
     fromName: s.smtp_from_name,
     fromEmail: s.smtp_from_email,
@@ -194,11 +205,13 @@ export async function loadTenantSmtp(client: PoolClient, companyId: string): Pro
   );
   const s = rows[0];
   if (!s?.smtp_host || !s?.smtp_from_email) return null;
+  const decrypted = tryDecryptSecret(s.smtp_password_enc);
+  if (!decrypted.ok) throw new Error(decrypted.error);
   return {
     host: s.smtp_host,
     port: s.smtp_port || 587,
     user: s.smtp_user,
-    password: s.smtp_password_enc ? decryptSecret(s.smtp_password_enc) : null,
+    password: decrypted.password,
     secure: !!s.smtp_secure,
     fromName: s.smtp_from_name,
     fromEmail: s.smtp_from_email,
@@ -316,17 +329,37 @@ export async function sendPlatformMail(to: string, subject: string, text: string
 }
 
 export async function sendPlatformSmtpTest(to?: string) {
-  const cfg = await loadPlatformSmtp();
-  if (!cfg) return { ok: false as const, error: 'Platform SMTP is not configured' };
-  const result = await deliver('platform', cfg, to || cfg.fromEmail, 'FieldPro platform SMTP test', 'Platform SMTP is working. This sender is FieldPro system email only.');
-  if (result.ok) return { ok: true as const, evidence: result.receipt };
-  return { ok: false as const, error: result.error, evidence: result.receipt };
+  try {
+    const cfg = await loadPlatformSmtp();
+    if (!cfg) return { ok: false as const, error: 'Platform SMTP is not configured' };
+    const result = await deliver('platform', cfg, to || cfg.fromEmail, 'FieldPro platform SMTP test', 'Platform SMTP is working. This sender is FieldPro system email only.');
+    if (result.ok) return { ok: true as const, evidence: result.receipt };
+    return { ok: false as const, error: result.error, evidence: result.receipt };
+  } catch (err) {
+    return { ok: false as const, error: err instanceof Error ? err.message : 'Platform SMTP test failed' };
+  }
 }
 
-export async function sendTenantSmtpTest(client: PoolClient, companyId: string, to?: string) {
-  const cfg = await loadTenantSmtp(client, companyId);
-  if (!cfg) return { ok: false as const, error: 'Tenant SMTP is not configured. Customer emails will not use FieldPro platform SMTP.' };
-  const result = await deliver('tenant', cfg, to || cfg.fromEmail, 'FieldPro company email test', 'Your company SMTP is working. This sender is used only for customer/CRM email.');
-  if (result.ok) return { ok: true as const, evidence: result.receipt };
-  return { ok: false as const, error: result.error, evidence: result.receipt };
+/** Loads tenant SMTP in a short DB transaction, then sends outside the transaction. */
+export async function sendTenantSmtpTest(companyId: string, to?: string) {
+  try {
+    const cfg = await withTenant(companyId, null, true, (client) => loadTenantSmtp(client, companyId));
+    if (!cfg) {
+      return {
+        ok: false as const,
+        error: 'Tenant SMTP is not configured. Save host, from email, and password first. Customer emails will not use FieldPro platform SMTP.',
+      };
+    }
+    const result = await deliver(
+      'tenant',
+      cfg,
+      to || cfg.fromEmail,
+      'FieldPro company email test',
+      'Your company SMTP is working. This sender is used only for customer/CRM email.',
+    );
+    if (result.ok) return { ok: true as const, evidence: result.receipt };
+    return { ok: false as const, error: result.error, evidence: result.receipt };
+  } catch (err) {
+    return { ok: false as const, error: err instanceof Error ? err.message : 'Company SMTP test failed' };
+  }
 }

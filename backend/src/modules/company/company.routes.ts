@@ -3,10 +3,13 @@ import { z } from 'zod';
 import { requireAuth } from '../../middleware/auth.js';
 import { requirePermission, requireRole, requireTenant } from '../../middleware/rbac.js';
 import { tenantRoute } from '../../middleware/tenant.js';
-import { badRequest, notFound } from '../../utils/errors.js';
+import { badRequest, forbidden, notFound } from '../../utils/errors.js';
 import { encryptSecret } from '../../utils/crypto.js';
 import { sendTenantSmtpTest } from '../../services/email.js';
 import { isCompanyProfileComplete } from './onboarding.js';
+import { pool } from '../../db/pool.js';
+import type { AuthedRequest } from '../../types.js';
+import type { Request, Response, NextFunction } from 'express';
 
 export const companyRouter = Router();
 companyRouter.use(requireAuth, requireTenant, requireRole('admin'));
@@ -112,7 +115,7 @@ companyRouter.post('/onboarding/complete', requirePermission('settings.company')
 companyRouter.patch('/smtp', requirePermission('settings.smtp'), tenantRoute(async (req, res, client) => {
   const body = z.object({
     host: z.string().optional(),
-    port: z.number().int().min(1).max(65535).optional(),
+    port: z.coerce.number().int().min(1).max(65535).optional(),
     user: z.string().optional(),
     password: z.string().optional(),
     secure: z.boolean().optional(),
@@ -145,9 +148,26 @@ companyRouter.patch('/smtp', requirePermission('settings.smtp'), tenantRoute(asy
   res.json({ ok: true, configured: true });
 }));
 
-companyRouter.post('/smtp/test', requirePermission('settings.smtp'), tenantRoute(async (req, res, client) => {
-  const body = z.object({ to: z.string().email().optional() }).parse(req.body ?? {});
-  const result = await sendTenantSmtpTest(client, req.auth.companyId!, body.to);
-  if (!result.ok) throw badRequest(result.error);
-  res.json({ ok: true, channel: 'tenant', evidence: result.evidence });
-}));
+/** SMTP I/O runs outside the DB transaction to avoid idle-in-transaction timeouts. */
+companyRouter.post('/smtp/test', requirePermission('settings.smtp'), requireTenant, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const auth = (req as AuthedRequest).auth;
+    const companyId = auth.companyId!;
+    const { rows } = await pool.query(
+      `SELECT status, trial_ends_at FROM companies WHERE id = $1 AND deleted_at IS NULL`,
+      [companyId],
+    );
+    const company = rows[0];
+    if (!company) throw forbidden('Company not found');
+    if (company.status === 'suspended') throw forbidden('Company is suspended');
+    if (company.status === 'trial' && company.trial_ends_at && new Date(company.trial_ends_at) < new Date()) {
+      throw forbidden('Trial expired');
+    }
+    const body = z.object({ to: z.string().email().optional() }).parse(req.body ?? {});
+    const result = await sendTenantSmtpTest(companyId, body.to);
+    if (!result.ok) throw badRequest(result.error);
+    res.json({ ok: true, channel: 'tenant', evidence: result.evidence });
+  } catch (err) {
+    next(err);
+  }
+});
