@@ -356,6 +356,7 @@ const AdminSettings = () => {
             <CardHeader>
               <CardTitle className="text-lg">Tenant Email</CardTitle>
               <p className="text-sm text-muted-foreground">Used for emails sent by your company to customers (invoices, estimates, appointments, follow-ups). FieldPro account, password reset, invites, and billing emails use FieldPro Platform Email — not these settings.</p>
+              <p className="text-xs text-muted-foreground">Note: Render free web services block outbound SMTP (ports 25/465/587). Company email test/send needs a paid Render instance (or an HTTPS mail API). Local backend can still reach One.com SMTP.</p>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="grid sm:grid-cols-2 gap-3">

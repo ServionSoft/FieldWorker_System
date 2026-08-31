@@ -103,7 +103,10 @@ function smtpErrorMessage(err: unknown) {
   const e = err as { message?: string; code?: string; response?: string; syscall?: string };
   const raw = String(e.response || e.message || 'Send failed');
   if (e.code === 'ENETUNREACH' || /ENETUNREACH/i.test(raw)) {
-    return 'SMTP server is unreachable over IPv6 from this host. Retry after deploy (IPv4-only SMTP), or confirm outbound port 587/465 is allowed.';
+    return 'SMTP server is unreachable over IPv6 from this host. The app forces IPv4; redeploy if this persists.';
+  }
+  if (e.code === 'ETIMEDOUT' || /ETIMEDOUT|Connection timeout/i.test(raw)) {
+    return 'SMTP connection timed out. Render free web services block outbound ports 25/465/587. Upgrade the backend to a paid instance, or use an HTTPS email API. Local SMTP still works.';
   }
   const detail = raw.slice(0, 280);
   if (e.code && !detail.includes(e.code)) return `${e.code}: ${detail}`;
