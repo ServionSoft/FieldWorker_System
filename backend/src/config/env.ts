@@ -5,11 +5,13 @@ import { fileURLToPath } from 'node:url';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const envCandidates = [
-  path.resolve(dir, '../../.env'),
   path.resolve(process.cwd(), '.env'),
+  path.resolve(dir, '../../.env'),
 ];
 for (const envPath of envCandidates) {
-  dotenv.config({ path: envPath, override: false });
+  // Last file wins so backend/.env overrides stale Passenger/cPanel env
+  // (Aiven URLs left in process.env after switching to Namecheap).
+  dotenv.config({ path: envPath, override: true });
 }
 
 const PLACEHOLDER_SECRETS = [
