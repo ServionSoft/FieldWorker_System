@@ -6,7 +6,6 @@ import { z } from 'zod';
 import { pool, withTransaction } from '../../db/pool.js';
 import { requireAuth } from '../../middleware/auth.js';
 import { wrap } from '../../utils/async.js';
-import { env } from '../../config/env.js';
 import { audit } from '../../utils/audit.js';
 import { badRequest, conflict, forbidden, notFound, unauthorized } from '../../utils/errors.js';
 import { hashPassword, sha256, signAccess, signRefresh, verifyPassword } from '../../utils/crypto.js';
@@ -17,8 +16,12 @@ profileRouter.use(requireAuth);
 
 const AVATAR_MAX = 2 * 1024 * 1024;
 const AVATAR_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-const avatarDir = path.resolve(env.FILE_LOCAL_DIR, 'avatars');
-fs.mkdirSync(avatarDir, { recursive: true });
+const uploadDir = path.join(process.cwd(), 'uploads');
+const avatarDir = path.join(uploadDir, 'avatars');
+
+if (!fs.existsSync(avatarDir)) {
+  fs.mkdirSync(avatarDir, { recursive: true });
+}
 
 const avatarUpload = multer({
   dest: avatarDir,
@@ -33,8 +36,8 @@ export const newPasswordSchema = z.string()
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 
 function avatarAbsPath(key: string) {
-  const full = path.resolve(env.FILE_LOCAL_DIR, key);
-  const root = path.resolve(env.FILE_LOCAL_DIR);
+  const full = path.resolve(uploadDir, key);
+  const root = path.resolve(uploadDir);
   if (!full.startsWith(root)) throw badRequest('Invalid avatar');
   return full;
 }

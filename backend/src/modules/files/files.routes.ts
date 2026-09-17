@@ -3,7 +3,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import multer from 'multer';
 import type { Request, Response, NextFunction } from 'express';
-import { env } from '../../config/env.js';
 import { requireAuth } from '../../middleware/auth.js';
 import { requireRole, requireTenant } from '../../middleware/rbac.js';
 import { tenantRoute } from '../../middleware/tenant.js';
@@ -13,8 +12,11 @@ import { signDownload, verifyDownload } from '../../utils/crypto.js';
 import { parsePage, pageResult } from '../../utils/helpers.js';
 import type { AuthedRequest } from '../../types.js';
 
-const uploadDir = path.resolve(env.FILE_LOCAL_DIR);
-fs.mkdirSync(uploadDir, { recursive: true });
+const uploadDir = path.join(process.cwd(), 'uploads');
+
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 const upload = multer({ dest: uploadDir, limits: { fileSize: 25 * 1024 * 1024 } });
 
