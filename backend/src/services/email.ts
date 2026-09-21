@@ -41,6 +41,37 @@ export const PLATFORM_TEMPLATE_TYPES = [
 ] as const;
 export type PlatformTemplateType = (typeof PLATFORM_TEMPLATE_TYPES)[number];
 
+const PLATFORM_TEMPLATE_FALLBACKS: Record<PlatformTemplateType, { subject: string; body: string }> = {
+  password_reset: {
+    subject: 'Reset your FieldPro password',
+    body: 'Use this link to reset your password: {resetLink}',
+  },
+  email_verification: {
+    subject: 'Verify your FieldPro email',
+    body: 'Hi {name},\n\nVerify your email to activate your FieldPro trial for {companyName}.\n\n{verifyLink}\n\nThis link expires in 24 hours.\n\nIf you did not create this account, you can ignore this email.',
+  },
+  welcome: {
+    subject: 'Welcome to FieldPro',
+    body: 'Welcome {name}. Your company {companyName} is ready.',
+  },
+  tenant_invitation: {
+    subject: 'You are invited to FieldPro',
+    body: 'Join {companyName}: {inviteLink}',
+  },
+  system_notification: {
+    subject: 'FieldPro notification',
+    body: '{message}',
+  },
+  subscription_started: {
+    subject: 'Your FieldPro subscription',
+    body: 'Your subscription for {companyName} is active.',
+  },
+  payment_failed: {
+    subject: 'Payment failed for FieldPro',
+    body: 'Payment failed for {companyName}. Please update billing.',
+  },
+};
+
 export const TENANT_TEMPLATE_TYPES = [
   'invoice',
   'appointment',
@@ -257,10 +288,19 @@ export async function loadTenantSmtp(client: PoolClient, companyId: string): Pro
 }
 
 export function renderEmailTemplate(template: string, vars: Record<string, string>) {
-  return Object.entries(vars).reduce(
-    (acc, [key, value]) => acc.replace(new RegExp(`\\{${key}\\}`, 'g'), value ?? ''),
-    template,
-  );
+  if (!template) return '';
+  const lookup = new Map<string, string>();
+  for (const [key, value] of Object.entries(vars)) {
+    const text = value ?? '';
+    lookup.set(key, text);
+    lookup.set(key.toLowerCase(), text);
+  }
+  return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (full, key: string) => {
+    if (lookup.has(key)) return lookup.get(key) as string;
+    const lower = key.toLowerCase();
+    if (lookup.has(lower)) return lookup.get(lower) as string;
+    return full;
+  });
 }
 
 export async function loadPlatformTemplate(type: PlatformTemplateType) {
@@ -301,7 +341,17 @@ export async function sendPlatformEmail(opts: SendPlatformOpts): Promise<boolean
     if (tpl) {
       subject = renderEmailTemplate(tpl.subject, vars);
       text = renderEmailTemplate(tpl.body, vars);
+    } else if (!subject && !text) {
+      const fallback = PLATFORM_TEMPLATE_FALLBACKS[opts.templateType];
+      if (fallback) {
+        subject = renderEmailTemplate(fallback.subject, vars);
+        text = renderEmailTemplate(fallback.body, vars);
+      }
     }
+  }
+  const verifyLink = opts.vars?.verifyLink || opts.vars?.verifyUrl;
+  if (verifyLink && text && !text.includes(verifyLink)) {
+    text = `${text.trim()}\n\n${verifyLink}`;
   }
   if (!cfg) {
     skipLog('platform', opts.to, subject || '(no subject)', 'not_configured', text);

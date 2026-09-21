@@ -137,6 +137,18 @@ function appBaseUrl() {
   return (env.APP_PUBLIC_URL || corsOrigins[0] || 'http://localhost:8080').replace(/\/$/, '');
 }
 
+function personVars(name: string, companyName: string, extra: Record<string, string> = {}) {
+  const displayName = name.trim() || companyName;
+  return {
+    name: displayName,
+    Name: displayName,
+    userName: displayName,
+    companyName,
+    company: companyName,
+    ...extra,
+  };
+}
+
 async function issueEmailVerification(
   userId: string,
   email: string,
@@ -153,12 +165,7 @@ async function issueEmailVerification(
     await sendPlatformEmail({
       to: email,
       templateType: 'email_verification',
-      vars: {
-        name: vars.name,
-        companyName: vars.companyName,
-        verifyLink,
-        verifyUrl: verifyLink,
-      },
+      vars: personVars(vars.name, vars.companyName, { verifyLink, verifyUrl: verifyLink }),
     });
   } catch (err) {
     console.error('email verification send failed', err);
@@ -171,10 +178,12 @@ async function issueEmailVerification(
 authRouter.post('/register', wrap(async (req, res) => {
   const body = z.object({
     companyName: z.string().min(1),
+    name: z.string().trim().min(1).max(120).optional(),
     email: z.string().email(),
     password: z.string().min(8),
     planId: z.string().uuid().optional(),
   }).parse(req.body);
+  const ownerName = body.name || body.companyName;
 
   const created = await withTransaction(async (client) => {
     const existing = await client.query('SELECT 1 FROM users WHERE email = $1', [body.email]);
@@ -193,7 +202,7 @@ authRouter.post('/register', wrap(async (req, res) => {
     const passwordHash = await hashPassword(body.password);
     const user = await client.query(
       `INSERT INTO users (email, password_hash, name) VALUES ($1,$2,$3) RETURNING id, email, name`,
-      [body.email, passwordHash, body.companyName],
+      [body.email, passwordHash, ownerName],
     );
     const trialEnds = new Date();
     trialEnds.setDate(trialEnds.getDate() + Number(days));
@@ -280,7 +289,7 @@ authRouter.post('/verify-email', wrap(async (req, res) => {
     await sendPlatformEmail({
       to: session.user.email,
       templateType: 'welcome',
-      vars: { name: session.user.name, companyName },
+      vars: personVars(session.user.name, companyName),
     });
   } catch (err) {
     console.error('welcome email failed', err);

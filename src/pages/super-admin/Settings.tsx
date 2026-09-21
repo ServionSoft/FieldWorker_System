@@ -90,7 +90,7 @@ export default function PlatformSettings() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Platform templates</CardTitle>
-          <p className="text-sm text-muted-foreground">System templates only. Tenant CRM templates live under company Email templates and cannot change these.</p>
+          <p className="text-sm text-muted-foreground">System templates only. Use placeholders like {'{name}'}, {'{companyName}'}, {'{verifyLink}'}, {'{resetLink}'}. Tenant CRM templates live under company Email templates and cannot change these.</p>
         </CardHeader>
         <CardContent className="space-y-6">
           {templates.map((t) => (

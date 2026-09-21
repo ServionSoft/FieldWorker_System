@@ -103,10 +103,10 @@ export const api = {
   auth: {
     login: (email: string, password: string) =>
       request<any>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
-    register: (companyName: string, email: string, password: string, planId?: string) =>
+    register: (companyName: string, email: string, password: string, planId?: string, name?: string) =>
       request<{ ok: boolean; requiresVerification?: boolean; email?: string; accessToken?: string; refreshToken?: string }>(
         '/auth/register',
-        { method: 'POST', body: JSON.stringify({ companyName, email, password, planId }) },
+        { method: 'POST', body: JSON.stringify({ companyName, email, password, planId, name }) },
       ),
     verifyEmail: (token: string) =>
       request<any>('/auth/verify-email', { method: 'POST', body: JSON.stringify({ token }) }),

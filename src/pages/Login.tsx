@@ -91,6 +91,7 @@ const Login = () => {
   const register = useAppStore((s) => s.register);
   const navigate = useNavigate();
   const [companyName, setCompanyName] = useState('');
+  const [ownerName, setOwnerName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -159,6 +160,7 @@ const Login = () => {
 
   const handleSignup = async () => {
     const next = applyErrors({
+      ownerName: requiredText(ownerName, 'Your name'),
       companyName: requiredText(companyName, 'Company name'),
       signupEmail: emailError(signupEmail, { required: true }),
       signupPassword: passwordMinError(signupPassword),
@@ -168,9 +170,9 @@ const Login = () => {
     if (Object.values(next).some(Boolean)) return;
     setLoading(true);
     try {
-      await register(companyName.trim(), signupEmail.trim(), signupPassword, planId);
+      await register(companyName.trim(), signupEmail.trim(), signupPassword, planId, ownerName.trim());
       setPendingVerifyEmail(signupEmail.trim());
-      toast.success('Check your email to verify your account.');
+      toast.success('Check your email and click the verification link to continue.');
     } catch (err: any) {
       toast.error(err?.message || 'Could not create account');
     } finally {
@@ -320,7 +322,7 @@ const Login = () => {
                     Verify your email
                   </h1>
                   <p className="text-sm text-[#64748B] mt-2 mb-7">
-                    We sent a verification link to <span className="font-medium text-[#0F172A]">{pendingVerifyEmail}</span> from FieldPro. Open it to activate your trial.
+                    We sent a verification link to <span className="font-medium text-[#0F172A]">{pendingVerifyEmail}</span>. Open that email and click the link. Your trial starts after you verify — you cannot sign in before that.
                   </p>
                 </>
               )}
@@ -431,6 +433,14 @@ const Login = () => {
 
               {activeTab === 'signup' && !pendingVerifyEmail && (
                 <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ownerName">Your name</Label>
+                    <div className="relative">
+                      <UserRound className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <Input id="ownerName" className="pl-10 h-12 rounded-[10px]" placeholder="Jane Mitchell" value={ownerName} onChange={(e) => { setOwnerName(e.target.value); setFieldErrors((x) => ({ ...x, ownerName: '' })); }} {...fieldInvalidProps('ownerName', fieldErrors.ownerName)} />
+                    </div>
+                    <FieldError id="ownerName-error" message={fieldErrors.ownerName} />
+                  </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="companyName">Company name</Label>
                     <div className="relative">
