@@ -3,32 +3,8 @@ import type Stripe from 'stripe';
 import { env } from '../../config/env.js';
 import { stripeClient } from '../../services/stripe.js';
 import { pool, withTenant } from '../../db/pool.js';
-import { notifyByPermission, notifyPlatformAdmins } from '../../utils/helpers.js';
-
-async function upsertBillingInvoice(companyId: string, inv: Stripe.Invoice) {
-  await withTenant(companyId, null, true, async (client) => {
-    await client.query(
-      `INSERT INTO billing_invoices (
-         company_id, stripe_invoice_id, number, amount_cents, currency, status, hosted_url, pdf_url, period_start, period_end
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8, to_timestamp($9), to_timestamp($10))
-       ON CONFLICT (stripe_invoice_id) DO UPDATE SET
-         status = excluded.status, hosted_url = excluded.hosted_url, pdf_url = excluded.pdf_url,
-         amount_cents = excluded.amount_cents, number = excluded.number`,
-      [
-        companyId,
-        inv.id,
-        inv.number,
-        inv.amount_paid || inv.amount_due || 0,
-        inv.currency || 'usd',
-        inv.status || 'open',
-        inv.hosted_invoice_url,
-        inv.invoice_pdf,
-        inv.period_start || null,
-        inv.period_end || null,
-      ],
-    );
-  });
-}
+import { notifyByPermission } from '../../utils/helpers.js';
+import { applyPaymentFailed, applyPaymentPaid } from './billing-effects.js';
 
 async function companyByStripe(customerId?: string | null, subscriptionId?: string | null, metadataCompanyId?: string | null) {
   if (metadataCompanyId) {
@@ -128,36 +104,11 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
         inv.metadata?.companyId,
       );
       if (company) {
-        await upsertBillingInvoice(company.id, inv);
         await pool.query(`UPDATE billing_events SET company_id = $2 WHERE stripe_event_id = $1`, [event.id, company.id]);
         if (event.type === 'invoice.paid') {
-          await pool.query(`UPDATE companies SET status = CASE WHEN status = 'suspended' THEN status ELSE 'active' END WHERE id = $1`, [company.id]);
-          await withTenant(company.id, null, true, async (client) => {
-            await notifyByPermission(client, company.id, 'billing.manage', {
-              title: 'Invoice paid',
-              message: `Subscription invoice ${inv.number || ''} was paid.`,
-              type: 'success',
-              eventKey: 'billing.invoice_paid',
-              linkPath: '/admin/settings?tab=billing',
-              emailPref: 'billing',
-            });
-          });
+          await applyPaymentPaid(company.id, inv);
         } else {
-          await pool.query(`UPDATE companies SET status = 'past_due' WHERE id = $1 AND status <> 'suspended'`, [company.id]);
-          await withTenant(company.id, null, true, async (client) => {
-            await notifyByPermission(client, company.id, 'billing.manage', {
-              title: 'Payment failed',
-              message: 'A subscription payment failed. Update your card to avoid interruption.',
-              type: 'error',
-              eventKey: 'billing.payment_failed',
-              linkPath: '/admin/settings?tab=billing',
-              emailPref: 'billing',
-            });
-            await notifyPlatformAdmins(client, 'Tenant payment failed', `${company.name} has a failed subscription payment`, {
-              eventKey: 'billing.payment_failed',
-              linkPath: `/super-admin/companies/${company.id}`,
-            });
-          });
+          await applyPaymentFailed(company, inv);
         }
       }
     }

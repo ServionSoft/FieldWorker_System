@@ -11,6 +11,12 @@ import { sendPlatformEmail, sendPlatformSmtpTest, recentEmailReceipts } from '..
 import { env } from '../../config/env.js';
 import { stripeConfigured } from '../../services/stripe.js';
 import { PLAN_FEATURE_KEYS, type PlanFeatureKey } from '../billing/plan-features.js';
+import {
+  applyPaymentFailed,
+  applyPaymentPaid,
+  applySubscriptionSuspended,
+  simulationInvoice,
+} from '../billing/billing-effects.js';
 
 const featureKeysSchema = z.array(z.enum(PLAN_FEATURE_KEYS as unknown as [PlanFeatureKey, ...PlanFeatureKey[]]));
 
@@ -492,6 +498,79 @@ platformRouter.get('/audit', platformRoute(async (req, res, client) => {
       createdAt: a.created_at.toISOString(),
     })),
     page, pageSize, total: total.rows[0].n,
+  });
+}));
+
+platformRouter.post('/companies/:id/billing-test', platformRoute(async (req, res, client) => {
+  const body = z.object({
+    action: z.enum(['payment_failed', 'payment_paid', 'suspended', 'restore_active']),
+  }).parse(req.body);
+
+  const company = await client.query(
+    `SELECT c.id, c.name, c.status, p.price_cents
+     FROM companies c JOIN subscription_plans p ON p.id = c.plan_id
+     WHERE c.id = $1 AND c.deleted_at IS NULL`,
+    [req.params.id],
+  );
+  if (!company.rowCount) throw notFound('Company');
+  const c = company.rows[0];
+  const amountCents = Number(c.price_cents) || 0;
+
+  if (body.action === 'payment_failed') {
+    await applyPaymentFailed({ id: c.id, name: c.name }, simulationInvoice(amountCents, 'open'), client);
+  } else if (body.action === 'payment_paid') {
+    const open = await client.query(
+      `SELECT stripe_invoice_id, number, amount_cents, currency
+       FROM billing_invoices
+       WHERE company_id = $1 AND stripe_invoice_id IS NOT NULL AND status IN ('open', 'draft', 'uncollectible')
+       ORDER BY created_at DESC LIMIT 1`,
+      [c.id],
+    );
+    const existing = open.rows[0];
+    await applyPaymentPaid(
+      c.id,
+      existing
+        ? {
+            id: existing.stripe_invoice_id,
+            number: existing.number,
+            amount_paid: existing.amount_cents,
+            currency: existing.currency,
+            status: 'paid',
+          }
+        : simulationInvoice(amountCents, 'paid'),
+      client,
+    );
+  } else if (body.action === 'suspended') {
+    await applySubscriptionSuspended(c.id, client);
+  } else {
+    await client.query(`UPDATE companies SET status = 'active' WHERE id = $1`, [c.id]);
+  }
+
+  await audit(client, {
+    actorUserId: req.auth.userId,
+    companyId: c.id,
+    action: `billing_test.${body.action}`,
+    entityType: 'company',
+    entityId: c.id,
+  });
+
+  const invoices = await client.query(
+    `SELECT * FROM billing_invoices WHERE company_id = $1 ORDER BY created_at DESC LIMIT 10`,
+    [c.id],
+  );
+  const updated = await client.query(`SELECT status FROM companies WHERE id = $1`, [c.id]);
+  res.json({
+    ok: true,
+    action: body.action,
+    status: updated.rows[0].status,
+    billingInvoices: invoices.rows.map((i) => ({
+      id: i.id,
+      number: i.number,
+      amount: i.amount_cents / 100,
+      status: i.status,
+      hostedUrl: i.hosted_url,
+      createdAt: i.created_at.toISOString(),
+    })),
   });
 }));
 
