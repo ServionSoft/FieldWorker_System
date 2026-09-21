@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAppStore } from "@/store/useAppStore";
+import { postAuthPath } from "@/lib/postAuthPath";
 import Onboarding from "./pages/Onboarding";
 
 import Index from "./pages/Index";
@@ -62,6 +63,16 @@ import WorkerChat from "./pages/worker/Chat";
 
 const queryClient = new QueryClient();
 
+const GuestOnly = ({ children }: { children: React.ReactNode }) => {
+  const isAuthenticated = useAppStore((s) => s.isAuthenticated);
+  const currentUser = useAppStore((s) => s.currentUser);
+  const company = useAppStore((s) => s.company);
+  if (isAuthenticated && currentUser) {
+    return <Navigate to={postAuthPath(currentUser, company)} replace />;
+  }
+  return <>{children}</>;
+};
+
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) => {
   const { isAuthenticated, currentUser } = useAppStore();
   if (!isAuthenticated || !currentUser) return <Navigate to="/login" replace />;
@@ -91,7 +102,7 @@ const router = createBrowserRouter(
   createRoutesFromElements(
     <>
       <Route path="/" element={<Index />} />
-      <Route path="/login" element={<Login />} />
+      <Route path="/login" element={<GuestOnly><Login /></GuestOnly>} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/profile" element={<ProfileRedirect />} />

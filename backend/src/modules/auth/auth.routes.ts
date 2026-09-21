@@ -265,34 +265,42 @@ authRouter.post('/register', wrap(async (req, res) => {
 authRouter.post('/verify-email', wrap(async (req, res) => {
   const body = z.object({ token: z.string().min(1) }).parse(req.body);
   const { rows } = await pool.query(
-    `SELECT id, user_id FROM email_verification_tokens
-     WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()`,
+    `SELECT id, user_id, used_at FROM email_verification_tokens
+     WHERE token_hash = $1 AND expires_at > now()`,
     [sha256(body.token)],
   );
   if (!rows[0]) throw badRequest('Invalid or expired verification link');
 
-  await withTransaction(async (client) => {
-    await client.query(`UPDATE users SET email_verified_at = COALESCE(email_verified_at, now()) WHERE id = $1`, [rows[0].user_id]);
-    await client.query(`UPDATE email_verification_tokens SET used_at = now() WHERE id = $1`, [rows[0].id]);
-    await client.query(
-      `UPDATE email_verification_tokens SET used_at = now()
-       WHERE user_id = $1 AND used_at IS NULL AND id <> $2`,
-      [rows[0].user_id, rows[0].id],
-    );
-  });
+  const firstVerify = !rows[0].used_at;
+  if (firstVerify) {
+    await withTransaction(async (client) => {
+      await client.query(`UPDATE users SET email_verified_at = COALESCE(email_verified_at, now()) WHERE id = $1`, [rows[0].user_id]);
+      await client.query(`UPDATE email_verification_tokens SET used_at = now() WHERE id = $1`, [rows[0].id]);
+      await client.query(
+        `UPDATE email_verification_tokens SET used_at = now()
+         WHERE user_id = $1 AND used_at IS NULL AND id <> $2`,
+        [rows[0].user_id, rows[0].id],
+      );
+    });
+  } else {
+    const verified = await pool.query(`SELECT email_verified_at FROM users WHERE id = $1`, [rows[0].user_id]);
+    if (!verified.rows[0]?.email_verified_at) throw badRequest('Invalid or expired verification link');
+  }
 
   const session = await loadSession(rows[0].user_id);
   if (!session) throw unauthorized('No active membership');
 
-  const companyName = session.company?.name || session.user.name;
-  try {
-    await sendPlatformEmail({
-      to: session.user.email,
-      templateType: 'welcome',
-      vars: personVars(session.user.name, companyName),
-    });
-  } catch (err) {
-    console.error('welcome email failed', err);
+  if (firstVerify) {
+    const companyName = session.company?.name || session.user.name;
+    try {
+      await sendPlatformEmail({
+        to: session.user.email,
+        templateType: 'welcome',
+        vars: personVars(session.user.name, companyName),
+      });
+    } catch (err) {
+      console.error('welcome email failed', err);
+    }
   }
 
   const { accessToken, refreshToken } = tokensFor(session);

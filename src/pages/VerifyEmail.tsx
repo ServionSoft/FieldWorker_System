@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '@/lib/api';
 import { useAppStore } from '@/store/useAppStore';
@@ -21,26 +21,25 @@ export default function VerifyEmail() {
   const [email, setEmail] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [sending, setSending] = useState(false);
+  const ran = useRef(false);
 
   useEffect(() => {
-    if (!token) return;
-    let cancelled = false;
+    if (!token || ran.current) return;
+    ran.current = true;
     (async () => {
       try {
         const data = await api.auth.verifyEmail(token);
-        if (cancelled) return;
         acceptSession(data);
         setStatus('ok');
+        setMessage('Email verified. Opening your workspace…');
         toast.success('Email verified. Your trial is ready.');
         const { currentUser, company } = useAppStore.getState();
         navigate(postAuthPath(currentUser, company), { replace: true });
       } catch (err) {
-        if (cancelled) return;
         setStatus('error');
         setMessage(err instanceof ApiError ? err.message : 'This verification link is invalid or expired.');
       }
     })();
-    return () => { cancelled = true; };
   }, [token, acceptSession, navigate]);
 
   const resend = async (e: FormEvent) => {
@@ -65,6 +64,12 @@ export default function VerifyEmail() {
         <CardHeader><CardTitle>Verify your email</CardTitle></CardHeader>
         <CardContent className="flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">{message}</p>
+          {status === 'ok' && (
+            <Button onClick={() => {
+              const { currentUser, company } = useAppStore.getState();
+              navigate(postAuthPath(currentUser, company), { replace: true });
+            }}>Continue to workspace</Button>
+          )}
           {status === 'error' && (
             <form className="flex flex-col gap-3" onSubmit={resend} noValidate>
               <div className="flex flex-col gap-1.5">

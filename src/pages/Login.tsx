@@ -88,6 +88,7 @@ const Login = () => {
     searchParams.get('tab') === 'signup' ? 'signup' : 'login',
   );
   const login = useAppStore((s) => s.login);
+  const hydrate = useAppStore((s) => s.hydrate);
   const register = useAppStore((s) => s.register);
   const navigate = useNavigate();
   const [companyName, setCompanyName] = useState('');
@@ -108,8 +109,55 @@ const Login = () => {
   const goHome = () => {
     const { currentUser, company } = useAppStore.getState();
     toast.success(`Welcome back, ${currentUser?.name}!`);
-    navigate(postAuthPath(currentUser, company));
+    navigate(postAuthPath(currentUser, company), { replace: true });
   };
+
+  const enterIfVerified = async () => {
+    const pwd = signupPassword || password;
+    if (!pendingVerifyEmail || !pwd) return false;
+    try {
+      const success = await login(pendingVerifyEmail, pwd);
+      if (success) {
+        setPendingVerifyEmail('');
+        goHome();
+        return true;
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'EMAIL_UNVERIFIED') return false;
+    }
+    return false;
+  };
+
+  useEffect(() => {
+    if (!pendingVerifyEmail) return;
+    const pwd = signupPassword || password;
+    if (!pwd) return;
+    let stopped = false;
+    const tick = async () => {
+      if (stopped) return;
+      await enterIfVerified();
+    };
+    const interval = window.setInterval(tick, 4000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void tick();
+    };
+    const onStorage = async (event: StorageEvent) => {
+      if (event.key !== 'fp_access' || !event.newValue) return;
+      await hydrate();
+      if (useAppStore.getState().isAuthenticated) {
+        setPendingVerifyEmail('');
+        goHome();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      stopped = true;
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [pendingVerifyEmail, signupPassword, password, hydrate, login, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -322,7 +370,7 @@ const Login = () => {
                     Verify your email
                   </h1>
                   <p className="text-sm text-[#64748B] mt-2 mb-7">
-                    We sent a verification link to <span className="font-medium text-[#0F172A]">{pendingVerifyEmail}</span>. Open that email and click the link. Your trial starts after you verify — you cannot sign in before that.
+                    We sent a verification link to <span className="font-medium text-[#0F172A]">{pendingVerifyEmail}</span>. Click that link, then this page will open your workspace.
                   </p>
                 </>
               )}
@@ -341,9 +389,17 @@ const Login = () => {
               {pendingVerifyEmail && (
                 <div className="flex flex-col gap-4">
                   <p className="text-sm text-[#64748B]">
-                    Didn’t get it? Check spam, or resend. This email is sent from FieldPro platform SMTP in Super Admin settings.
+                    After you click the email link, come back here if this tab is still waiting — it will continue on its own, or tap continue below.
                   </p>
-                  <Button className="w-full h-12 font-semibold rounded-[10px] bg-[#2563EB] hover:bg-[#1D4ED8]" disabled={loading} onClick={handleResendVerification}>
+                  <Button className="w-full h-12 font-semibold rounded-[10px] bg-[#2563EB] hover:bg-[#1D4ED8]" disabled={loading} onClick={async () => {
+                    setLoading(true);
+                    const ok = await enterIfVerified();
+                    setLoading(false);
+                    if (!ok) toast.message('Not verified yet. Open the link in your email first.');
+                  }}>
+                    {loading ? 'Checking…' : 'I’ve verified — continue'}
+                  </Button>
+                  <Button variant="outline" className="w-full h-12 font-semibold rounded-[10px]" disabled={loading} onClick={handleResendVerification}>
                     {loading ? 'Sending…' : 'Resend verification email'}
                   </Button>
                   <p className="text-center text-sm text-[#64748B]">
