@@ -99,6 +99,7 @@ const Login = () => {
   const [forgotEmail, setForgotEmail] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [pendingVerifyEmail, setPendingVerifyEmail] = useState('');
+  const [pendingResetEmail, setPendingResetEmail] = useState('');
   const planId = searchParams.get('plan') || undefined;
 
   useEffect(() => {
@@ -248,8 +249,8 @@ const Login = () => {
     setLoading(true);
     try {
       await api.auth.forgot(forgotEmail.trim());
-      toast.success('If that email exists, a reset link was created.');
-      setActiveTab('login');
+      setPendingResetEmail(forgotEmail.trim());
+      toast.success('If that account exists, we sent a reset link.');
     } catch {
       toast.error('Could not send reset email');
     } finally {
@@ -374,14 +375,25 @@ const Login = () => {
                   </p>
                 </>
               )}
-              {activeTab === 'forgot' && (
+              {activeTab === 'forgot' && !pendingResetEmail && (
                 <>
                   <p className="text-sm text-slate-500 mb-1.5">Account recovery</p>
                   <h1 className="font-heading text-[clamp(1.5rem,4vw,1.875rem)] font-bold tracking-tight text-[#0F172A]">
                     Reset password
                   </h1>
                   <p className="text-sm text-[#64748B] mt-2 mb-7">
-                    We’ll email a link if that account exists.
+                    Enter the email on your account. If it exists, we’ll send a reset link that expires in 1 hour.
+                  </p>
+                </>
+              )}
+              {pendingResetEmail && (
+                <>
+                  <p className="text-sm text-slate-500 mb-1.5">Check your inbox</p>
+                  <h1 className="font-heading text-[clamp(1.5rem,4vw,1.875rem)] font-bold tracking-tight text-[#0F172A]">
+                    Reset link sent
+                  </h1>
+                  <p className="text-sm text-[#64748B] mt-2 mb-7">
+                    If <span className="font-medium text-[#0F172A]">{pendingResetEmail}</span> has a FieldPro account, open that email and click <span className="font-medium text-[#0F172A]">Reset password</span>. The link expires in 1 hour.
                   </p>
                 </>
               )}
@@ -540,7 +552,23 @@ const Login = () => {
                 </div>
               )}
 
-              {activeTab === 'forgot' && (
+              {activeTab === 'forgot' && pendingResetEmail && (
+                <div className="flex flex-col gap-4">
+                  <p className="text-sm text-[#64748B]">
+                    Didn’t get it? Check spam, then you can send another link. Use only the newest email.
+                  </p>
+                  <Button className="w-full h-12 font-semibold rounded-[10px] bg-[#2563EB] hover:bg-[#1D4ED8]" disabled={loading} onClick={handleForgot}>
+                    {loading ? 'Sending…' : 'Resend reset link'}
+                  </Button>
+                  <p className="text-center text-sm text-[#64748B]">
+                    <button type="button" className="text-[#2563EB] font-medium hover:underline" onClick={() => { setPendingResetEmail(''); setActiveTab('login'); }}>
+                      Back to sign in
+                    </button>
+                  </p>
+                </div>
+              )}
+
+              {activeTab === 'forgot' && !pendingResetEmail && (
                 <div className="space-y-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="forgotEmail">Work email</Label>

@@ -138,7 +138,7 @@ function appBaseUrl() {
 }
 
 function personVars(name: string, companyName: string, extra: Record<string, string> = {}) {
-  const displayName = name.trim() || companyName;
+  const displayName = name.trim() || companyName.trim() || 'there';
   return {
     name: displayName,
     Name: displayName,
@@ -433,24 +433,27 @@ authRouter.post('/logout', requireAuth, wrap(async (req, res) => {
 
 authRouter.post('/forgot-password', wrap(async (req, res) => {
   const body = z.object({ email: z.string().email() }).parse(req.body);
-  const { rows } = await pool.query(`SELECT id FROM users WHERE email = $1`, [body.email]);
+  const { rows } = await pool.query(`SELECT id, name, email FROM users WHERE email = $1`, [body.email]);
   if (rows[0]) {
     const token = randomToken();
+    await pool.query(
+      `UPDATE password_reset_tokens SET used_at = now()
+       WHERE user_id = $1 AND used_at IS NULL`,
+      [rows[0].id],
+    );
     await pool.query(
       `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
        VALUES ($1,$2, now() + interval '1 hour')`,
       [rows[0].id, sha256(token)],
     );
-    const base = (env.APP_PUBLIC_URL || corsOrigins[0] || 'http://localhost:8080').replace(/\/$/, '');
-    const link = `${base}/reset-password?token=${token}`;
+    const resetUrl = `${appBaseUrl()}/reset-password?token=${encodeURIComponent(token)}`;
     try {
       await sendPlatformEmail({
-        to: body.email,
+        to: rows[0].email,
         templateType: 'password_reset',
-        vars: { resetLink: link },
+        vars: personVars(rows[0].name || '', '', { resetUrl, resetLink: resetUrl }),
       });
     } catch (err) {
-      // Always return generic success; do not leak mail/config failures to clients.
       console.error('forgot-password email failed', err);
     }
     if (process.env.NODE_ENV !== 'production') {

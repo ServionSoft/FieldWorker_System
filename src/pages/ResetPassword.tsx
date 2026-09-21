@@ -17,7 +17,7 @@ export default function ResetPassword() {
   const [confirm, setConfirm] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
-  const [serverError, setServerError] = useState(token ? '' : 'This reset link is missing or invalid.');
+  const [serverError, setServerError] = useState(token ? '' : 'This reset link is missing or invalid. Request a new one from the sign-in page.');
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,9 +32,9 @@ export default function ResetPassword() {
     try {
       await api.auth.reset(token, password);
       toast.success('Password updated. Sign in with your new password.');
-      navigate('/login');
+      navigate('/login', { replace: true });
     } catch (err) {
-      setServerError(err instanceof ApiError ? err.message : 'This reset link is invalid or expired.');
+      setServerError(err instanceof ApiError ? err.message : 'This reset link is invalid or expired. Request a new one.');
     } finally {
       setSaving(false);
     }
@@ -43,21 +43,41 @@ export default function ResetPassword() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-muted/30">
       <Card className="w-full max-w-md">
-        <CardHeader><CardTitle>Set a new password</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Set a new password</CardTitle>
+        </CardHeader>
         <CardContent>
+          <p className="text-sm text-muted-foreground mb-4">
+            Choose a password with at least 8 characters. This link works once and expires after 1 hour.
+          </p>
           <form className="space-y-4" onSubmit={submit} noValidate>
             {serverError && <p className="text-sm text-destructive" role="alert">{serverError}</p>}
             <div className="space-y-2">
               <Label htmlFor="password">New password</Label>
-              <Input type="password" autoComplete="new-password" value={password} onChange={(e) => { setPassword(e.target.value); setErrors((x) => ({ ...x, password: '' })); }} {...fieldInvalidProps('password', errors.password)} />
+              <Input
+                id="password"
+                type="password"
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setErrors((x) => ({ ...x, password: '' })); }}
+                {...fieldInvalidProps('password', errors.password)}
+              />
               <FieldError id="password-error" message={errors.password} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirm">Confirm password</Label>
-              <Input type="password" autoComplete="new-password" value={confirm} onChange={(e) => { setConfirm(e.target.value); setErrors((x) => ({ ...x, confirm: '' })); }} {...fieldInvalidProps('confirm', errors.confirm)} />
+              <Input
+                id="confirm"
+                type="password"
+                autoComplete="new-password"
+                value={confirm}
+                onChange={(e) => { setConfirm(e.target.value); setErrors((x) => ({ ...x, confirm: '' })); }}
+                {...fieldInvalidProps('confirm', errors.confirm)}
+              />
               <FieldError id="confirm-error" message={errors.confirm} />
             </div>
             <Button type="submit" className="w-full" disabled={saving || !token}>{saving ? 'Saving…' : 'Update password'}</Button>
+            <Button type="button" variant="outline" className="w-full" onClick={() => navigate('/login')}>Back to sign in</Button>
           </form>
         </CardContent>
       </Card>
