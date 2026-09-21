@@ -12,7 +12,8 @@ interface AuthState {
   permissions: string[];
   planFeatures: string[];
   login: (email: string, password: string) => Promise<boolean>;
-  register: (companyName: string, email: string, password: string) => Promise<boolean>;
+  register: (companyName: string, email: string, password: string, planId?: string) => Promise<{ requiresVerification: boolean }>;
+  acceptSession: (data: any) => void;
   logout: () => Promise<void>;
   hydrate: () => Promise<void>;
   toggleDarkMode: () => void;
@@ -64,11 +65,19 @@ export const useAppStore = create<AuthState>((set, get) => ({
     }
   },
 
-  register: async (companyName, email, password) => {
-    const data = await api.auth.register(companyName, email, password);
+  register: async (companyName, email, password, planId) => {
+    const data = await api.auth.register(companyName, email, password, planId);
+    if (data.requiresVerification || !data.accessToken) {
+      return { requiresVerification: true };
+    }
     setTokens(data.accessToken, data.refreshToken);
     set(applySession(data));
-    return true;
+    return { requiresVerification: false };
+  },
+
+  acceptSession: (data: any) => {
+    setTokens(data.accessToken, data.refreshToken);
+    set(applySession(data));
   },
 
   logout: async () => {

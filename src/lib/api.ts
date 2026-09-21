@@ -103,8 +103,15 @@ export const api = {
   auth: {
     login: (email: string, password: string) =>
       request<any>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
-    register: (companyName: string, email: string, password: string) =>
-      request<any>('/auth/register', { method: 'POST', body: JSON.stringify({ companyName, email, password }) }),
+    register: (companyName: string, email: string, password: string, planId?: string) =>
+      request<{ ok: boolean; requiresVerification?: boolean; email?: string; accessToken?: string; refreshToken?: string }>(
+        '/auth/register',
+        { method: 'POST', body: JSON.stringify({ companyName, email, password, planId }) },
+      ),
+    verifyEmail: (token: string) =>
+      request<any>('/auth/verify-email', { method: 'POST', body: JSON.stringify({ token }) }),
+    resendVerification: (email: string) =>
+      request('/auth/resend-verification', { method: 'POST', body: JSON.stringify({ email }) }),
     logout: (refreshToken?: string) =>
       request('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) }),
     me: () => request<any>('/auth/me'),
@@ -390,5 +397,10 @@ export const api = {
       request(`/platform/email-templates/${type}`, { method: 'PATCH', body: JSON.stringify(body) }),
     audit: () => request<{ items: any[] }>('/platform/audit?pageSize=50').then((r) => r.items),
     billingInvoices: () => request<{ items: any[] }>('/platform/billing-invoices?pageSize=50').then((r) => r.items),
+    billingTest: (companyId: string, action: 'payment_failed' | 'payment_paid' | 'suspended' | 'restore_active') =>
+      request<{ ok: boolean; action: string; status: string; billingInvoices: any[] }>(
+        `/platform/companies/${companyId}/billing-test`,
+        { method: 'POST', body: JSON.stringify({ action }) },
+      ),
   },
 };

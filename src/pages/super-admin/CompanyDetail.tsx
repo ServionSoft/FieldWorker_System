@@ -56,6 +56,9 @@ export default function CompanyDetail() {
               navigate('/admin');
             } catch (e: any) { toast.error(e.message); }
           }}>Impersonate tenant</Button>
+          <Button variant="outline" onClick={() => navigate(`/super-admin/billing-test?companyId=${c.id}`)}>
+            Billing test
+          </Button>
         </CardContent>
       </Card>
       <Card>

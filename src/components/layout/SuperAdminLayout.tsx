@@ -6,7 +6,7 @@ import { useScrollToTop } from '@/hooks/useScrollToTop';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { Button } from '@/components/ui/button';
 import {
-  LayoutDashboard, Building2, CreditCard, BarChart3, LogOut, Menu, X, Moon, Sun, Settings, ScrollText
+  LayoutDashboard, Building2, CreditCard, BarChart3, LogOut, Menu, X, Moon, Sun, Settings, ScrollText, FlaskConical
 } from 'lucide-react';
 import { NavItem } from '@/components/layout/NavItem';
 import { BrandMark } from '@/components/layout/BrandMark';
@@ -16,6 +16,7 @@ const navItems = [
   { label: 'Dashboard', path: '/super-admin', icon: LayoutDashboard },
   { label: 'Companies', path: '/super-admin/companies', icon: Building2 },
   { label: 'Subscriptions', path: '/super-admin/subscriptions', icon: CreditCard },
+  { label: 'Billing test', path: '/super-admin/billing-test', icon: FlaskConical },
   { label: 'Reports', path: '/super-admin/reports', icon: BarChart3 },
   { label: 'Audit log', path: '/super-admin/audit', icon: ScrollText },
   { label: 'Settings', path: '/super-admin/settings', icon: Settings },

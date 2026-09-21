@@ -32,6 +32,7 @@ export type EmailChannel = 'platform' | 'tenant';
 
 export const PLATFORM_TEMPLATE_TYPES = [
   'password_reset',
+  'email_verification',
   'welcome',
   'tenant_invitation',
   'system_notification',

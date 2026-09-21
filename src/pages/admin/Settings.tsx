@@ -12,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { FieldError, fieldInvalidProps } from '@/components/crm/FieldError';
+import { BillingSettings } from '@/pages/admin/BillingSettings';
 import { applyErrors, emailError, phoneError, requiredText, taxRateError, urlError } from '@/lib/formValidation';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -37,7 +38,6 @@ const AdminSettings = () => {
   const [members, setMembers] = useState<any[]>([]);
   const [catalog, setCatalog] = useState<{ key: string; label: string }[]>([]);
   const [invites, setInvites] = useState<any[]>([]);
-  const [billing, setBilling] = useState<any>(null);
   const [prefs, setPrefs] = useState({ notifyEmailAssignments: true, notifyEmailInvoices: true, notifyEmailBilling: true });
   const [invite, setInvite] = useState({ email: '', name: '', role: 'office' });
   const [smtp, setSmtp] = useState({ host: '', port: 587, user: '', password: '', secure: true, fromName: '', fromEmail: '', replyTo: '' });
@@ -75,9 +75,6 @@ const AdminSettings = () => {
         setCatalog(m.permissionCatalog);
         setInvites(await api.members.invitations());
       } catch { /* ignore */ }
-    }
-    if (can(perms, 'billing.manage')) {
-      try { setBilling(await api.billing.get()); } catch { /* ignore */ }
     }
   };
 
@@ -400,54 +397,8 @@ const AdminSettings = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="billing" className="mt-4 space-y-4">
-          {!billing ? <p className="text-sm text-muted-foreground">Loading…</p> : (
-            <>
-              <Card>
-                <CardHeader><CardTitle className="text-lg">Subscription</CardTitle></CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm">Plan: <strong>{billing.subscription?.planName}</strong> · {billing.subscription?.status}</p>
-                  {billing.subscription?.trialEndsAt && <p className="text-xs text-muted-foreground">Trial ends {new Date(billing.subscription.trialEndsAt).toLocaleDateString()}</p>}
-                  {(billing.subscription?.featureKeys || []).length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {(billing.subscription.featureKeys as string[]).map((k: string) => (
-                        <Badge key={k} variant="secondary" className="text-[10px]">{k}</Badge>
-                      ))}
-                    </div>
-                  )}
-                  {!billing.stripeConfigured && <p className="text-sm text-warning">Stripe is not configured. Super Admin can assign plans manually.</p>}
-                  {billing.stripeConfigured && (
-                    <div className="flex flex-wrap gap-2">
-                      {billing.plans?.map((p: any) => (
-                        <Button key={p.id} variant="outline" size="sm" onClick={async () => {
-                          try {
-                            const { url } = await api.billing.checkout(p.id, 'monthly');
-                            window.location.href = url;
-                          } catch (e: any) { toast.error(e.message); }
-                        }}>Upgrade to {p.name} (${p.price}/mo)</Button>
-                      ))}
-                      <Button variant="secondary" onClick={async () => {
-                        try { const { url } = await api.billing.portal(); window.location.href = url; }
-                        catch (e: any) { toast.error(e.message); }
-                      }}>Payment methods & receipts</Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader><CardTitle className="text-lg">Invoices</CardTitle></CardHeader>
-                <CardContent className="space-y-2">
-                  {(billing.invoices || []).length === 0 && <p className="text-sm text-muted-foreground">No subscription invoices yet.</p>}
-                  {(billing.invoices || []).map((i: any) => (
-                    <div key={i.id} className="flex justify-between text-sm">
-                      <span>{i.number || i.id.slice(0, 8)} · {i.status}</span>
-                      <span>${i.amount} {i.hostedUrl && <a className="text-primary ml-2" href={i.hostedUrl} target="_blank" rel="noreferrer">View</a>}</span>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </>
-          )}
+        <TabsContent value="billing" className="mt-4">
+          <BillingSettings />
         </TabsContent>
 
         <TabsContent value="notifications" className="mt-4">

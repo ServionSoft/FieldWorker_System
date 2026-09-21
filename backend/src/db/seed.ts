@@ -38,14 +38,14 @@ async function main() {
     const plan = (name: string) => plans.rows.find((p) => p.name === name)!.id;
 
     const sa = await client.query(
-      `INSERT INTO users (email, password_hash, name, phone, is_platform_admin)
-       VALUES ('marcus@fieldpro.io', $1, 'Marcus Chen', '(555) 100-0001', true) RETURNING id`,
+      `INSERT INTO users (email, password_hash, name, phone, is_platform_admin, email_verified_at)
+       VALUES ('marcus@fieldpro.io', $1, 'Marcus Chen', '(555) 100-0001', true, now()) RETURNING id`,
       [hash],
     );
 
     async function user(email: string, name: string, phone: string) {
       const r = await client.query(
-        `INSERT INTO users (email, password_hash, name, phone) VALUES ($1,$2,$3,$4) RETURNING id`,
+        `INSERT INTO users (email, password_hash, name, phone, email_verified_at) VALUES ($1,$2,$3,$4, now()) RETURNING id`,
         [email, hash, name, phone],
       );
       return r.rows[0].id as string;

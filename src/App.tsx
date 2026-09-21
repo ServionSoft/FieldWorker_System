@@ -11,6 +11,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
+import VerifyEmail from "./pages/VerifyEmail";
 
 // Layouts
 import AdminLayout from "./components/layout/AdminLayout";
@@ -51,6 +52,7 @@ import SuperAdminReports from "./pages/super-admin/Reports";
 import SuperAdminSettings from "./pages/super-admin/Settings";
 import SuperAdminAudit from "./pages/super-admin/Audit";
 import SuperAdminCompanyDetail from "./pages/super-admin/CompanyDetail";
+import SuperAdminBillingTest from "./pages/super-admin/BillingTest";
 
 // Worker pages
 import WorkerDashboard from "./pages/worker/Dashboard";
@@ -91,6 +93,7 @@ const router = createBrowserRouter(
       <Route path="/" element={<Index />} />
       <Route path="/login" element={<Login />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/profile" element={<ProfileRedirect />} />
       <Route path="/invite/:token" element={<InviteAccept />} />
       <Route path="/onboarding" element={<ProtectedRoute allowedRoles={['owner', 'admin', 'dispatcher', 'office']}><Onboarding /></ProtectedRoute>} />
@@ -128,6 +131,7 @@ const router = createBrowserRouter(
         <Route path="settings" element={<SuperAdminSettings />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="audit" element={<SuperAdminAudit />} />
+        <Route path="billing-test" element={<SuperAdminBillingTest />} />
         <Route path="notifications" element={<NotificationsPage />} />
       </Route>
 

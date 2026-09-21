@@ -6,7 +6,7 @@ import { wrap } from '../../utils/async.js';
 import {
   hashPassword, verifyPassword, signAccess, signRefresh, sha256, randomToken, verifyRefresh,
 } from '../../utils/crypto.js';
-import { unauthorized, badRequest, conflict, forbidden } from '../../utils/errors.js';
+import { unauthorized, badRequest, conflict, forbidden, emailUnverified } from '../../utils/errors.js';
 import { audit } from '../../utils/audit.js';
 import type { AuthedRequest, AppRole } from '../../types.js';
 import { loadEffectivePermissions, PERMISSIONS } from '../rbac/permissions.js';
@@ -133,29 +133,70 @@ function tokensFor(session: NonNullable<Awaited<ReturnType<typeof loadSession>>>
   return { accessToken, refreshToken };
 }
 
+function appBaseUrl() {
+  return (env.APP_PUBLIC_URL || corsOrigins[0] || 'http://localhost:8080').replace(/\/$/, '');
+}
+
+async function issueEmailVerification(
+  userId: string,
+  email: string,
+  vars: { name: string; companyName: string },
+) {
+  const token = randomToken();
+  await pool.query(
+    `INSERT INTO email_verification_tokens (user_id, token_hash, expires_at)
+     VALUES ($1,$2, now() + interval '24 hours')`,
+    [userId, sha256(token)],
+  );
+  const verifyLink = `${appBaseUrl()}/verify-email?token=${encodeURIComponent(token)}`;
+  try {
+    await sendPlatformEmail({
+      to: email,
+      templateType: 'email_verification',
+      vars: {
+        name: vars.name,
+        companyName: vars.companyName,
+        verifyLink,
+        verifyUrl: verifyLink,
+      },
+    });
+  } catch (err) {
+    console.error('email verification send failed', err);
+  }
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`Email verification token for ${email}: ${token}`);
+  }
+}
+
 authRouter.post('/register', wrap(async (req, res) => {
   const body = z.object({
     companyName: z.string().min(1),
     email: z.string().email(),
     password: z.string().min(8),
+    planId: z.string().uuid().optional(),
   }).parse(req.body);
 
-  const payload = await withTransaction(async (client) => {
+  const created = await withTransaction(async (client) => {
     const existing = await client.query('SELECT 1 FROM users WHERE email = $1', [body.email]);
     if (existing.rowCount) throw conflict('Email already registered');
 
-    const plan = await client.query(
-      `SELECT id FROM subscription_plans WHERE name = 'Basic' LIMIT 1`,
-    );
+    let plan = body.planId
+      ? await client.query(`SELECT id FROM subscription_plans WHERE id = $1`, [body.planId])
+      : { rowCount: 0, rows: [] as { id: string }[] };
+    if (!plan.rowCount) {
+      plan = await client.query(`SELECT id FROM subscription_plans WHERE name = 'Basic' LIMIT 1`);
+    }
     if (!plan.rowCount) throw badRequest('Plans are not configured');
 
+    const trial = await client.query(`SELECT trial_days FROM platform_settings WHERE id = 1`);
+    const days = trial.rows[0]?.trial_days ?? 14;
     const passwordHash = await hashPassword(body.password);
     const user = await client.query(
       `INSERT INTO users (email, password_hash, name) VALUES ($1,$2,$3) RETURNING id, email, name`,
       [body.email, passwordHash, body.companyName],
     );
     const trialEnds = new Date();
-    trialEnds.setDate(trialEnds.getDate() + 14);
+    trialEnds.setDate(trialEnds.getDate() + Number(days));
     const company = await client.query(
       `INSERT INTO companies (name, email, plan_id, status, trial_ends_at)
        VALUES ($1,$2,$3,'trial',$4) RETURNING id, name, status, phone, email, address`,
@@ -180,15 +221,10 @@ authRouter.post('/register', wrap(async (req, res) => {
       companyId: company.rows[0].id,
       userId: user.rows[0].id,
       title: 'Welcome to FieldPro',
-      message: `Your 14-day trial for ${body.companyName} has started`,
+      message: `Your ${days}-day trial for ${body.companyName} has started. Verify your email to sign in.`,
       type: 'success',
       eventKey: 'company.welcome',
       linkPath: '/admin/settings?tab=billing',
-    });
-    await sendPlatformEmail({
-      to: body.email,
-      templateType: 'welcome',
-      vars: { companyName: body.companyName },
     });
     await notifyPlatformAdmins(
       client,
@@ -196,57 +232,98 @@ authRouter.post('/register', wrap(async (req, res) => {
       `${body.companyName} has started a trial subscription`,
       { eventKey: 'company.registered', linkPath: '/super-admin/companies' },
     );
-
-    const session = {
-      user: {
-        id: user.rows[0].id,
-        name: user.rows[0].name,
-        firstName: '',
-        lastName: '',
-        email: user.rows[0].email,
-        phone: null as string | null,
-        avatar: null as string | null,
-        hasAvatar: false,
-        jobTitle: null as string | null,
-        timezone: 'America/Chicago',
-        locale: 'en',
-        createdAt: null as string | null,
-        lastLoginAt: null as string | null,
-        role: 'owner' as AppRole,
-        companyId: company.rows[0].id,
-      },
-      company: {
-        id: company.rows[0].id,
-        name: company.rows[0].name,
-        status: company.rows[0].status,
-        phone: company.rows[0].phone,
-        email: company.rows[0].email,
-        address: company.rows[0].address,
-        timezone: 'America/Chicago',
-        businessType: null as string | null,
-        trialEndsAt: trialEnds.toISOString(),
-        onboardingRequired: true,
-        onboardingComplete: false,
-      },
-      memberId: member.rows[0].id,
-      role: 'owner' as AppRole,
-      permissions: [...PERMISSIONS],
-      planFeatures: await loadPlanFeatures(client, company.rows[0].id),
-      preferences: {
-        notifyEmailAssignments: true,
-        notifyEmailInvoices: true,
-        notifyEmailBilling: true,
-      },
+    return {
+      userId: user.rows[0].id as string,
+      email: user.rows[0].email as string,
+      name: user.rows[0].name as string,
+      companyName: company.rows[0].name as string,
+      memberId: member.rows[0].id as string,
     };
-    const { accessToken, refreshToken } = tokensFor(session);
+  });
+
+  await issueEmailVerification(created.userId, created.email, {
+    name: created.name,
+    companyName: created.companyName,
+  });
+
+  res.status(201).json({
+    ok: true,
+    requiresVerification: true,
+    email: created.email,
+  });
+}));
+
+authRouter.post('/verify-email', wrap(async (req, res) => {
+  const body = z.object({ token: z.string().min(1) }).parse(req.body);
+  const { rows } = await pool.query(
+    `SELECT id, user_id FROM email_verification_tokens
+     WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()`,
+    [sha256(body.token)],
+  );
+  if (!rows[0]) throw badRequest('Invalid or expired verification link');
+
+  await withTransaction(async (client) => {
+    await client.query(`UPDATE users SET email_verified_at = COALESCE(email_verified_at, now()) WHERE id = $1`, [rows[0].user_id]);
+    await client.query(`UPDATE email_verification_tokens SET used_at = now() WHERE id = $1`, [rows[0].id]);
+    await client.query(
+      `UPDATE email_verification_tokens SET used_at = now()
+       WHERE user_id = $1 AND used_at IS NULL AND id <> $2`,
+      [rows[0].user_id, rows[0].id],
+    );
+  });
+
+  const session = await loadSession(rows[0].user_id);
+  if (!session) throw unauthorized('No active membership');
+
+  const companyName = session.company?.name || session.user.name;
+  try {
+    await sendPlatformEmail({
+      to: session.user.email,
+      templateType: 'welcome',
+      vars: { name: session.user.name, companyName },
+    });
+  } catch (err) {
+    console.error('welcome email failed', err);
+  }
+
+  const { accessToken, refreshToken } = tokensFor(session);
+  await withTransaction(async (client) => {
+    await client.query(`UPDATE users SET last_login_at = now() WHERE id = $1`, [session.user.id]);
     await client.query(
       `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
        VALUES ($1,$2, now() + interval '14 days')`,
       [session.user.id, sha256(refreshToken)],
     );
-    return { ...session, accessToken, refreshToken };
+    await audit(client, {
+      actorUserId: session.user.id,
+      companyId: session.user.companyId,
+      action: 'auth.email_verified',
+      ip: req.ip,
+    });
   });
-  res.status(201).json(payload);
+  res.json({ ...session, accessToken, refreshToken });
+}));
+
+authRouter.post('/resend-verification', wrap(async (req, res) => {
+  const body = z.object({ email: z.string().email() }).parse(req.body);
+  const { rows } = await pool.query(
+    `SELECT u.id, u.email, u.name, u.email_verified_at, u.is_platform_admin, c.name AS company_name
+     FROM users u
+     LEFT JOIN company_members m ON m.user_id = u.id AND m.status = 'active'
+     LEFT JOIN companies c ON c.id = m.company_id AND c.deleted_at IS NULL
+     WHERE u.email = $1
+     ORDER BY m.created_at ASC NULLS LAST
+     LIMIT 1`,
+    [body.email],
+  );
+  const row = rows[0];
+  if (row && !row.email_verified_at && !row.is_platform_admin) {
+    await issueEmailVerification(row.id, row.email, {
+      name: row.name,
+      companyName: row.company_name || row.name,
+    });
+  }
+  res.json({ ok: true });
 }));
 
 authRouter.post('/login', wrap(async (req, res) => {
@@ -256,12 +333,15 @@ authRouter.post('/login', wrap(async (req, res) => {
   }).parse(req.body);
 
   const { rows } = await pool.query(
-    `SELECT id, password_hash FROM users WHERE email = $1`,
+    `SELECT id, password_hash, email_verified_at, is_platform_admin FROM users WHERE email = $1`,
     [body.email],
   );
   const row = rows[0];
   if (!row || !(await verifyPassword(row.password_hash, body.password))) {
     throw unauthorized('Invalid credentials');
+  }
+  if (!row.is_platform_admin && !row.email_verified_at) {
+    throw emailUnverified('Verify your email before signing in. Check your inbox for the FieldPro link.');
   }
   const session = await loadSession(row.id);
   if (!session) throw unauthorized('No active membership');

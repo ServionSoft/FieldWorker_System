@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ApiError } from '@/lib/api';
+import { ApiError, api } from '@/lib/api';
 import { FieldError, fieldInvalidProps } from '@/components/crm/FieldError';
 import { applyErrors, emailError, passwordMatchError, passwordMinError, requiredText } from '@/lib/formValidation';
 import { postAuthPath } from '@/lib/postAuthPath';
@@ -96,6 +96,8 @@ const Login = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [forgotEmail, setForgotEmail] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [pendingVerifyEmail, setPendingVerifyEmail] = useState('');
+  const planId = searchParams.get('plan') || undefined;
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -130,6 +132,12 @@ const Login = () => {
       }
     } catch (err) {
       setLoading(false);
+      if (err instanceof ApiError && err.code === 'EMAIL_UNVERIFIED') {
+        setPendingVerifyEmail(email.trim());
+        setError('');
+        toast.message('Verify your email to sign in. We can resend the link if you need it.');
+        return;
+      }
       setError(signInErrorMessage(err));
     }
   };
@@ -160,10 +168,24 @@ const Login = () => {
     if (Object.values(next).some(Boolean)) return;
     setLoading(true);
     try {
-      await register(companyName.trim(), signupEmail.trim(), signupPassword);
-      goHome();
+      await register(companyName.trim(), signupEmail.trim(), signupPassword, planId);
+      setPendingVerifyEmail(signupEmail.trim());
+      toast.success('Check your email to verify your account.');
     } catch (err: any) {
       toast.error(err?.message || 'Could not create account');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!pendingVerifyEmail) return;
+    setLoading(true);
+    try {
+      await api.auth.resendVerification(pendingVerifyEmail);
+      toast.success('If that account needs verification, a new link was sent.');
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not resend verification email');
     } finally {
       setLoading(false);
     }
@@ -175,7 +197,6 @@ const Login = () => {
     if (Object.values(next).some(Boolean)) return;
     setLoading(true);
     try {
-      const { api } = await import('@/lib/api');
       await api.auth.forgot(forgotEmail.trim());
       toast.success('If that email exists, a reset link was created.');
       setActiveTab('login');
@@ -270,7 +291,7 @@ const Login = () => {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.22 }}
             >
-              {activeTab === 'login' && (
+              {activeTab === 'login' && !pendingVerifyEmail && (
                 <>
                   <p className="text-sm text-slate-500 mb-1.5">Welcome back 👋</p>
                   <h1 className="font-heading text-[clamp(1.5rem,4vw,1.875rem)] font-bold tracking-tight text-[#0F172A]">
@@ -281,7 +302,7 @@ const Login = () => {
                   </p>
                 </>
               )}
-              {activeTab === 'signup' && (
+              {activeTab === 'signup' && !pendingVerifyEmail && (
                 <>
                   <p className="text-sm text-slate-500 mb-1.5">Free trial</p>
                   <h1 className="font-heading text-[clamp(1.5rem,4vw,1.875rem)] font-bold tracking-tight text-[#0F172A]">
@@ -289,6 +310,17 @@ const Login = () => {
                   </h1>
                   <p className="text-sm text-[#64748B] mt-2 mb-7">
                     14-day trial. Invite your team when you’re ready.
+                  </p>
+                </>
+              )}
+              {pendingVerifyEmail && (
+                <>
+                  <p className="text-sm text-slate-500 mb-1.5">Check your inbox</p>
+                  <h1 className="font-heading text-[clamp(1.5rem,4vw,1.875rem)] font-bold tracking-tight text-[#0F172A]">
+                    Verify your email
+                  </h1>
+                  <p className="text-sm text-[#64748B] mt-2 mb-7">
+                    We sent a verification link to <span className="font-medium text-[#0F172A]">{pendingVerifyEmail}</span> from FieldPro. Open it to activate your trial.
                   </p>
                 </>
               )}
@@ -304,7 +336,24 @@ const Login = () => {
                 </>
               )}
 
-              {activeTab === 'login' && (
+              {pendingVerifyEmail && (
+                <div className="flex flex-col gap-4">
+                  <p className="text-sm text-[#64748B]">
+                    Didn’t get it? Check spam, or resend. This email is sent from FieldPro platform SMTP in Super Admin settings.
+                  </p>
+                  <Button className="w-full h-12 font-semibold rounded-[10px] bg-[#2563EB] hover:bg-[#1D4ED8]" disabled={loading} onClick={handleResendVerification}>
+                    {loading ? 'Sending…' : 'Resend verification email'}
+                  </Button>
+                  <p className="text-center text-sm text-[#64748B]">
+                    Wrong address?{' '}
+                    <button type="button" className="text-[#2563EB] font-medium hover:underline" onClick={() => { setPendingVerifyEmail(''); setActiveTab('signup'); }}>
+                      Use a different email
+                    </button>
+                  </p>
+                </div>
+              )}
+
+              {activeTab === 'login' && !pendingVerifyEmail && (
                 <form onSubmit={handleLogin} className="space-y-4" noValidate>
                   {error && (
                     <div className="flex items-start gap-2 p-3 rounded-[10px] border border-[#FECACA] bg-[#FEF2F2] text-[#B91C1C] text-sm">
@@ -380,7 +429,7 @@ const Login = () => {
                 </form>
               )}
 
-              {activeTab === 'signup' && (
+              {activeTab === 'signup' && !pendingVerifyEmail && (
                 <div className="space-y-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="companyName">Company name</Label>

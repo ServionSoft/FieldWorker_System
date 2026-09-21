@@ -14,6 +14,9 @@ export const notFound = (entity = 'Resource') =>
 export const forbidden = (message = 'Forbidden') =>
   new AppError(403, 'FORBIDDEN', message);
 
+export const emailUnverified = (message = 'Verify your email before signing in.') =>
+  new AppError(403, 'EMAIL_UNVERIFIED', message);
+
 export const unauthorized = (message = 'Unauthorized') =>
   new AppError(401, 'UNAUTHORIZED', message);
 
