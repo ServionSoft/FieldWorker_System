@@ -28,7 +28,7 @@ export const PLATFORM_TEMPLATE_TYPES = [
 const PLATFORM_TEMPLATE_FALLBACKS = {
     password_reset: {
         subject: 'Reset your FieldPro password',
-        body: 'Use this link to reset your password: {resetLink}',
+        body: 'Hi {name},\n\nWe received a request to reset the password for your FieldPro account.\n\nThis link expires in 1 hour:\n{resetUrl}\n\nIf you did not request this, you can ignore this email. Your password will stay the same.',
     },
     email_verification: {
         subject: 'Verify your FieldPro email',
@@ -250,11 +250,51 @@ export async function loadTenantSmtp(client, companyId) {
         replyTo: s.smtp_reply_to,
     };
 }
+function expandLinkAliases(vars) {
+    const reset = vars.resetLink || vars.resetUrl || '';
+    const verify = vars.verifyLink || vars.verifyUrl || '';
+    const invite = vars.inviteLink || vars.inviteUrl || '';
+    return {
+        ...vars,
+        ...(reset ? { resetLink: reset, resetUrl: reset } : {}),
+        ...(verify ? { verifyLink: verify, verifyUrl: verify } : {}),
+        ...(invite ? { inviteLink: invite, inviteUrl: invite } : {}),
+    };
+}
+function actionFromVars(vars, templateType) {
+    const url = vars.resetUrl || vars.resetLink || vars.verifyUrl || vars.verifyLink || vars.inviteUrl || vars.inviteLink || '';
+    if (!url)
+        return undefined;
+    const label = templateType === 'email_verification'
+        ? 'Verify email'
+        : templateType === 'tenant_invitation'
+            ? 'Accept invitation'
+            : templateType === 'password_reset'
+                ? 'Reset password'
+                : 'Open link';
+    return { url, label };
+}
+function escapeHtml(value) {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+function platformEmailHtml(text, action) {
+    const linked = escapeHtml(text)
+        .replace(/\n/g, '<br/>')
+        .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#2563EB;word-break:break-all">$1</a>');
+    const button = action?.url
+        ? `<p style="margin:28px 0 20px"><a href="${escapeHtml(action.url)}" style="display:inline-block;background:#2563EB;color:#ffffff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600">${escapeHtml(action.label)}</a></p>`
+        : '';
+    return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.55;color:#0F172A;max-width:560px">${button}<p style="margin:0">${linked}</p></div>`;
+}
 export function renderEmailTemplate(template, vars) {
     if (!template)
         return '';
     const lookup = new Map();
-    for (const [key, value] of Object.entries(vars)) {
+    for (const [key, value] of Object.entries(expandLinkAliases(vars))) {
         const text = value ?? '';
         lookup.set(key, text);
         lookup.set(key.toLowerCase(), text);
@@ -281,16 +321,14 @@ export async function loadTenantTemplate(client, companyId, type) {
 /** FieldPro system mail. Always Super Admin SMTP. Sender cannot be overridden. */
 export async function sendPlatformEmail(opts) {
     const cfg = await loadPlatformSmtp();
+    const vars = expandLinkAliases(opts.vars ?? {});
     let subject = opts.subject || '';
     let text = opts.text || '';
-    if (opts.templateType && (!opts.subject || !opts.text)) {
+    if (opts.templateType) {
         const tpl = await loadPlatformTemplate(opts.templateType);
-        const vars = opts.vars ?? {};
         if (tpl) {
-            if (!opts.subject)
-                subject = renderEmailTemplate(tpl.subject, vars);
-            if (!opts.text)
-                text = renderEmailTemplate(tpl.body, vars);
+            subject = renderEmailTemplate(tpl.subject, vars);
+            text = renderEmailTemplate(tpl.body, vars);
         }
         else if (!subject && !text) {
             const fallback = PLATFORM_TEMPLATE_FALLBACKS[opts.templateType];
@@ -300,10 +338,11 @@ export async function sendPlatformEmail(opts) {
             }
         }
     }
-    const verifyLink = opts.vars?.verifyLink || opts.vars?.verifyUrl;
-    if (verifyLink && text && !text.includes(verifyLink)) {
-        text = `${text.trim()}\n\n${verifyLink}`;
+    const action = actionFromVars(vars, opts.templateType);
+    if (action?.url && text && !text.includes(action.url)) {
+        text = `${text.trim()}\n\n${action.url}`;
     }
+    const html = opts.html || (text ? platformEmailHtml(text, action) : undefined);
     if (!cfg) {
         skipLog('platform', opts.to, subject || '(no subject)', 'not_configured', text);
         recordReceipt({
@@ -322,7 +361,7 @@ export async function sendPlatformEmail(opts) {
         });
         return false;
     }
-    return (await deliver('platform', cfg, opts.to, subject, text, opts.html)).ok;
+    return (await deliver('platform', cfg, opts.to, subject, text, html)).ok;
 }
 /** Tenant-to-customer CRM mail. Always that company's SMTP. Sender cannot be overridden. */
 export async function sendTenantEmail(client, companyId, opts) {

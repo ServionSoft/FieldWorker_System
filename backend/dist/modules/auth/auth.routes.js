@@ -122,7 +122,7 @@ function appBaseUrl() {
     return (env.APP_PUBLIC_URL || corsOrigins[0] || 'http://localhost:8080').replace(/\/$/, '');
 }
 function personVars(name, companyName, extra = {}) {
-    const displayName = name.trim() || companyName;
+    const displayName = name.trim() || companyName.trim() || 'there';
     return {
         name: displayName,
         Name: displayName,
@@ -137,24 +137,11 @@ async function issueEmailVerification(userId, email, vars) {
     await pool.query(`INSERT INTO email_verification_tokens (user_id, token_hash, expires_at)
      VALUES ($1,$2, now() + interval '24 hours')`, [userId, sha256(token)]);
     const verifyLink = `${appBaseUrl()}/verify-email?token=${encodeURIComponent(token)}`;
-    const name = vars.name.trim() || vars.companyName;
-    const subject = 'Verify your FieldPro email';
-    const text = `Hi ${name},
-
-Click this link to verify your email and activate your FieldPro trial for ${vars.companyName}:
-
-${verifyLink}
-
-This link expires in 24 hours.
-
-If you did not create this account, you can ignore this email.`;
     try {
         await sendPlatformEmail({
             to: email,
-            subject,
-            text,
             templateType: 'email_verification',
-            vars: personVars(name, vars.companyName, { verifyLink, verifyUrl: verifyLink }),
+            vars: personVars(vars.name, vars.companyName, { verifyLink, verifyUrl: verifyLink }),
         });
     }
     catch (err) {
@@ -235,29 +222,39 @@ authRouter.post('/register', wrap(async (req, res) => {
 }));
 authRouter.post('/verify-email', wrap(async (req, res) => {
     const body = z.object({ token: z.string().min(1) }).parse(req.body);
-    const { rows } = await pool.query(`SELECT id, user_id FROM email_verification_tokens
-     WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()`, [sha256(body.token)]);
+    const { rows } = await pool.query(`SELECT id, user_id, used_at FROM email_verification_tokens
+     WHERE token_hash = $1 AND expires_at > now()`, [sha256(body.token)]);
     if (!rows[0])
         throw badRequest('Invalid or expired verification link');
-    await withTransaction(async (client) => {
-        await client.query(`UPDATE users SET email_verified_at = COALESCE(email_verified_at, now()) WHERE id = $1`, [rows[0].user_id]);
-        await client.query(`UPDATE email_verification_tokens SET used_at = now() WHERE id = $1`, [rows[0].id]);
-        await client.query(`UPDATE email_verification_tokens SET used_at = now()
-       WHERE user_id = $1 AND used_at IS NULL AND id <> $2`, [rows[0].user_id, rows[0].id]);
-    });
+    const firstVerify = !rows[0].used_at;
+    if (firstVerify) {
+        await withTransaction(async (client) => {
+            await client.query(`UPDATE users SET email_verified_at = COALESCE(email_verified_at, now()) WHERE id = $1`, [rows[0].user_id]);
+            await client.query(`UPDATE email_verification_tokens SET used_at = now() WHERE id = $1`, [rows[0].id]);
+            await client.query(`UPDATE email_verification_tokens SET used_at = now()
+         WHERE user_id = $1 AND used_at IS NULL AND id <> $2`, [rows[0].user_id, rows[0].id]);
+        });
+    }
+    else {
+        const verified = await pool.query(`SELECT email_verified_at FROM users WHERE id = $1`, [rows[0].user_id]);
+        if (!verified.rows[0]?.email_verified_at)
+            throw badRequest('Invalid or expired verification link');
+    }
     const session = await loadSession(rows[0].user_id);
     if (!session)
         throw unauthorized('No active membership');
-    const companyName = session.company?.name || session.user.name;
-    try {
-        await sendPlatformEmail({
-            to: session.user.email,
-            templateType: 'welcome',
-            vars: personVars(session.user.name, companyName),
-        });
-    }
-    catch (err) {
-        console.error('welcome email failed', err);
+    if (firstVerify) {
+        const companyName = session.company?.name || session.user.name;
+        try {
+            await sendPlatformEmail({
+                to: session.user.email,
+                templateType: 'welcome',
+                vars: personVars(session.user.name, companyName),
+            });
+        }
+        catch (err) {
+            console.error('welcome email failed', err);
+        }
     }
     const { accessToken, refreshToken } = tokensFor(session);
     await withTransaction(async (client) => {
@@ -362,22 +359,22 @@ authRouter.post('/logout', requireAuth, wrap(async (req, res) => {
 }));
 authRouter.post('/forgot-password', wrap(async (req, res) => {
     const body = z.object({ email: z.string().email() }).parse(req.body);
-    const { rows } = await pool.query(`SELECT id FROM users WHERE email = $1`, [body.email]);
+    const { rows } = await pool.query(`SELECT id, name, email FROM users WHERE email = $1`, [body.email]);
     if (rows[0]) {
         const token = randomToken();
+        await pool.query(`UPDATE password_reset_tokens SET used_at = now()
+       WHERE user_id = $1 AND used_at IS NULL`, [rows[0].id]);
         await pool.query(`INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
        VALUES ($1,$2, now() + interval '1 hour')`, [rows[0].id, sha256(token)]);
-        const base = (env.APP_PUBLIC_URL || corsOrigins[0] || 'http://localhost:8080').replace(/\/$/, '');
-        const link = `${base}/reset-password?token=${token}`;
+        const resetUrl = `${appBaseUrl()}/reset-password?token=${encodeURIComponent(token)}`;
         try {
             await sendPlatformEmail({
-                to: body.email,
+                to: rows[0].email,
                 templateType: 'password_reset',
-                vars: { resetLink: link },
+                vars: personVars(rows[0].name || '', '', { resetUrl, resetLink: resetUrl }),
             });
         }
         catch (err) {
-            // Always return generic success; do not leak mail/config failures to clients.
             console.error('forgot-password email failed', err);
         }
         if (process.env.NODE_ENV !== 'production') {
