@@ -184,7 +184,7 @@ billingRouter.post('/checkout', tenantRoute(async (req, res, client) => {
       expand: ['latest_invoice'],
       ...(endingTrial ? { trial_end: 'now' as const } : {}),
     });
-    await persistStripeSubscription(companyId, updated, c.status as string, client);
+    await persistStripeSubscription(companyId, updated, c.status as string, client, body.planId);
     await syncCompanyBillingFromStripe(companyId, client);
 
     const latest = updated.latest_invoice;

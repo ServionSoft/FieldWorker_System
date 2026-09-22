@@ -5,7 +5,8 @@ import { requirePermission, requireRole, requireTenant } from '../../middleware/
 import { tenantRoute } from '../../middleware/tenant.js';
 import { notFound, conflict } from '../../utils/errors.js';
 import { hashPassword, randomToken, sha256 } from '../../utils/crypto.js';
-import { assertPlanLimits, notify, parsePage, pageResult } from '../../utils/helpers.js';
+import { notify, parsePage, pageResult } from '../../utils/helpers.js';
+import { assertWorkerLimitSynced } from '../billing/stripe-sync.js';
 import { audit } from '../../utils/audit.js';
 import { sendPlatformEmailResult } from '../../services/email.js';
 import { env } from '../../config/env.js';
@@ -115,7 +116,7 @@ workersRouter.post('/', requireRole('admin'), requirePermission('workers.manage'
     );
     if (dup.rowCount) throw conflict('User is already a member of this company');
   }
-  await assertPlanLimits(client, companyId, 'workers', { includePendingInvites: true });
+  await assertWorkerLimitSynced(client, companyId, { includePendingInvites: true });
 
   let userId: string;
   const isNewUser = !existing.rowCount;
@@ -232,7 +233,7 @@ workersRouter.patch('/:id', requireRole('admin'), requirePermission('workers.man
     const memberWasActive = memberRow.rows[0]?.status === 'active';
     const activatingSeat = body.status !== 'inactive' && (prev === 'inactive' || !memberWasActive);
     if (activatingSeat) {
-      await assertPlanLimits(client, companyId, 'workers', { includePendingInvites: true });
+      await assertWorkerLimitSynced(client, companyId, { includePendingInvites: true });
     }
     await client.query(
       `UPDATE worker_profiles SET employment_status = $2 WHERE id = $1`,

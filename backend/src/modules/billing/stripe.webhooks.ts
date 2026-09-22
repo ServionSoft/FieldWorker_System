@@ -91,10 +91,18 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
             `UPDATE companies SET
                stripe_subscription_id = $2,
                stripe_customer_id = coalesce(stripe_customer_id, $3),
-               plan_id = coalesce($4::uuid, plan_id)
+               plan_id = coalesce($4::uuid, plan_id),
+               status = 'active',
+               trial_ends_at = NULL
              WHERE id = $1`,
             [companyId, subId, typeof session.customer === 'string' ? session.customer : null, uuidOrNull(session.metadata?.planId)],
           );
+          try {
+            const sub = await stripe.subscriptions.retrieve(subId, { expand: ['items.data.price.product'] });
+            await persistStripeSubscription(companyId, sub, 'active', undefined, session.metadata?.planId);
+          } catch {
+            /* sync below still applies plan from Stripe */
+          }
         } else if (session.customer) {
           await pool.query(
             `UPDATE companies SET stripe_customer_id = coalesce(stripe_customer_id, $2) WHERE id = $1`,

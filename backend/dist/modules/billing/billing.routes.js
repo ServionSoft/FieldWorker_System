@@ -157,7 +157,7 @@ billingRouter.post('/checkout', tenantRoute(async (req, res, client) => {
             expand: ['latest_invoice'],
             ...(endingTrial ? { trial_end: 'now' } : {}),
         });
-        await persistStripeSubscription(companyId, updated, c.status, client);
+        await persistStripeSubscription(companyId, updated, c.status, client, body.planId);
         await syncCompanyBillingFromStripe(companyId, client);
         const latest = updated.latest_invoice;
         const invoice = typeof latest === 'string' ? await stripe.invoices.retrieve(latest) : latest;

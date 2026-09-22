@@ -3,6 +3,7 @@ import type Stripe from 'stripe';
 import { pool, withTenant } from '../../db/pool.js';
 import { stripeClient } from '../../services/stripe.js';
 import { upsertBillingInvoice, type BillingInvoiceInput } from './billing-effects.js';
+import { assertPlanLimits } from '../../utils/helpers.js';
 
 const LIVE_SUB_STATUSES: Stripe.Subscription.Status[] = [
   'active',
@@ -21,6 +22,80 @@ export function uuidOrNull(value?: string | null) {
 async function runCompanyQuery(client: PoolClient | undefined, sql: string, params: unknown[]) {
   if (client) return client.query(sql, params);
   return pool.query(sql, params);
+}
+
+function subscriptionPrice(sub: Stripe.Subscription): Stripe.Price | null {
+  const raw = sub.items?.data?.[0]?.price;
+  if (!raw || typeof raw === 'string') return null;
+  return raw;
+}
+
+export async function resolvePlanIdFromStripe(
+  sub: Stripe.Subscription,
+  fallbackPlanId?: string | null,
+  client?: PoolClient,
+): Promise<string | null> {
+  const fromMeta = uuidOrNull(sub.metadata?.planId) || uuidOrNull(fallbackPlanId);
+  if (fromMeta) {
+    const exists = await runCompanyQuery(client, `SELECT id FROM subscription_plans WHERE id = $1`, [fromMeta]);
+    if (exists.rows[0]) return fromMeta;
+  }
+
+  let price = subscriptionPrice(sub);
+  const priceId = price?.id || (typeof sub.items?.data?.[0]?.price === 'string' ? sub.items.data[0].price : null);
+  const stripe = stripeClient();
+  if ((!price || price.unit_amount == null) && priceId && stripe) {
+    try {
+      price = await stripe.prices.retrieve(priceId, { expand: ['product'] });
+    } catch {
+      /* keep existing price */
+    }
+  }
+
+  if (price?.id) {
+    const byStripePrice = await runCompanyQuery(
+      client,
+      `SELECT id FROM subscription_plans
+       WHERE stripe_price_id_monthly = $1 OR stripe_price_id_yearly = $1
+       LIMIT 2`,
+      [price.id],
+    );
+    if (byStripePrice.rows.length === 1) return byStripePrice.rows[0].id as string;
+  }
+
+  const unitAmount = price?.unit_amount;
+  const interval = price?.recurring?.interval;
+  if (unitAmount && unitAmount > 0) {
+    const sql = interval === 'year'
+      ? `SELECT id FROM subscription_plans WHERE price_cents_yearly = $1`
+      : `SELECT id FROM subscription_plans WHERE price_cents = $1`;
+    const byAmount = await runCompanyQuery(client, sql, [unitAmount]);
+    if (byAmount.rows.length === 1) return byAmount.rows[0].id as string;
+  }
+
+  let productName: string | null = null;
+  const product = price?.product;
+  if (product && typeof product !== 'string' && !('deleted' in product && product.deleted) && 'name' in product) {
+    productName = (product as Stripe.Product).name || null;
+  } else if (typeof product === 'string' && stripe) {
+    try {
+      const prod = await stripe.products.retrieve(product);
+      if (!prod.deleted) productName = prod.name;
+    } catch { /* ignore */ }
+  }
+  if (productName) {
+    const stripped = productName.replace(/^FieldPro\s+/i, '').trim();
+    if (stripped) {
+      const byName = await runCompanyQuery(
+        client,
+        `SELECT id FROM subscription_plans WHERE lower(name) = lower($1) LIMIT 1`,
+        [stripped],
+      );
+      if (byName.rows[0]) return byName.rows[0].id as string;
+    }
+  }
+
+  return null;
 }
 
 export function stripeInvoiceToInput(inv: Stripe.Invoice): BillingInvoiceInput {
@@ -59,8 +134,9 @@ export async function persistStripeSubscription(
   sub: Stripe.Subscription,
   currentStatus = 'trial',
   client?: PoolClient,
+  fallbackPlanId?: string | null,
 ) {
-  const planId = uuidOrNull(sub.metadata?.planId);
+  const planId = await resolvePlanIdFromStripe(sub, fallbackPlanId, client);
   const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id || null;
   const status = companyStatusFromStripe(sub.status, currentStatus);
   await runCompanyQuery(
@@ -104,6 +180,10 @@ async function closeLocalInvoicesPaidOnStripe(
   return withTenant(companyId, null, true, fn);
 }
 
+async function retrieveSubscription(stripe: Stripe, id: string) {
+  return stripe.subscriptions.retrieve(id, { expand: ['items.data.price.product'] });
+}
+
 export async function syncCompanyBillingFromStripe(companyId: string, client?: PoolClient) {
   const stripe = stripeClient();
   if (!stripe) return;
@@ -122,7 +202,7 @@ export async function syncCompanyBillingFromStripe(companyId: string, client?: P
     let sub: Stripe.Subscription | null = null;
     if (company.stripe_subscription_id) {
       try {
-        sub = await stripe.subscriptions.retrieve(company.stripe_subscription_id);
+        sub = await retrieveSubscription(stripe, company.stripe_subscription_id);
       } catch {
         sub = null;
       }
@@ -133,10 +213,11 @@ export async function syncCompanyBillingFromStripe(companyId: string, client?: P
         status: 'all',
         limit: 10,
       });
-      sub =
+      const picked =
         list.data.find((s) => LIVE_SUB_STATUSES.includes(s.status))
         || list.data[0]
-        || sub;
+        || null;
+      sub = picked ? await retrieveSubscription(stripe, picked.id) : sub;
     }
 
     if (sub) {
@@ -160,5 +241,18 @@ export async function syncCompanyBillingFromStripe(companyId: string, client?: P
     }
   } catch (err) {
     console.error('stripe billing sync', err);
+  }
+}
+
+export async function assertWorkerLimitSynced(
+  client: PoolClient,
+  companyId: string,
+  opts?: { includePendingInvites?: boolean },
+) {
+  try {
+    await assertPlanLimits(client, companyId, 'workers', opts);
+  } catch {
+    await syncCompanyBillingFromStripe(companyId, client);
+    await assertPlanLimits(client, companyId, 'workers', opts);
   }
 }

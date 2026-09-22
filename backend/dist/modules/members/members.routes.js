@@ -6,7 +6,8 @@ import { tenantRoute } from '../../middleware/tenant.js';
 import { badRequest, conflict, forbidden, notFound } from '../../utils/errors.js';
 import { audit } from '../../utils/audit.js';
 import { hashPassword, randomToken, sha256 } from '../../utils/crypto.js';
-import { assertPlanLimits, notify, notifyByPermission } from '../../utils/helpers.js';
+import { notify, notifyByPermission } from '../../utils/helpers.js';
+import { assertWorkerLimitSynced } from '../billing/stripe-sync.js';
 import { sendPlatformEmail } from '../../services/email.js';
 import { PERMISSIONS, PERMISSION_LABELS, ROLE_DEFAULTS, effectivePermissions, } from '../rbac/permissions.js';
 import { wrap } from '../../utils/async.js';
@@ -75,7 +76,7 @@ membersRouter.post('/invite', tenantRoute(async (req, res, client) => {
         throw forbidden('Only an owner can invite another owner');
     const companyId = req.auth.companyId;
     if (body.role === 'field_worker') {
-        await assertPlanLimits(client, companyId, 'workers', { includePendingInvites: true });
+        await assertWorkerLimitSynced(client, companyId, { includePendingInvites: true });
     }
     const existing = await client.query(`SELECT 1 FROM company_members m JOIN users u ON u.id = m.user_id
      WHERE m.company_id = $1 AND u.email = $2`, [companyId, body.email]);
@@ -139,7 +140,7 @@ membersRouter.patch('/:id', tenantRoute(async (req, res, client) => {
     const nextStatus = body.status ?? current.status;
     const becomingWorker = nextRole === 'field_worker' && (current.role !== 'field_worker' || current.status !== 'active');
     if (becomingWorker && nextStatus === 'active') {
-        await assertPlanLimits(client, companyId, 'workers', { includePendingInvites: true });
+        await assertWorkerLimitSynced(client, companyId, { includePendingInvites: true });
     }
     await client.query(`UPDATE company_members SET
        role = coalesce($3, role),
@@ -236,7 +237,7 @@ invitePublicRouter.post('/:token/accept', wrap(async (req, res) => {
             throw conflict('Already a member');
         await client.query(`SELECT set_config('app.current_company_id', $1, true)`, [inv.company_id]);
         if (inv.role === 'field_worker') {
-            await assertPlanLimits(client, inv.company_id, 'workers');
+            await assertWorkerLimitSynced(client, inv.company_id);
         }
         const member = await client.query(`INSERT INTO company_members (company_id, user_id, role, status) VALUES ($1,$2,$3,'active') RETURNING id`, [inv.company_id, userId, inv.role]);
         if (inv.role === 'field_worker') {

@@ -94,5 +94,7 @@ if (isProduction) {
 export const env = parsed;
 
 /** Comma-separated CORS_ORIGIN → list (Vite may use localhost or 127.0.0.1). */
-export const corsOrigins = env.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean);
+export const corsOrigins = env.CORS_ORIGIN.split(',')
+  .map((o) => o.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
 
