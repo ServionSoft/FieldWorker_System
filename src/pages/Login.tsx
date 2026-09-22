@@ -161,7 +161,7 @@ const Login = () => {
       if (err instanceof ApiError && err.code === 'EMAIL_UNVERIFIED') {
         setPendingVerifyEmail(email.trim());
         setError('');
-        toast.message('Verify your email to sign in. We can resend the link if you need it.');
+        toast.message(err.message);
         return;
       }
       setError(signInErrorMessage(err));
@@ -180,9 +180,13 @@ const Login = () => {
     if (Object.values(next).some(Boolean)) return;
     setLoading(true);
     try {
-      await register(companyName.trim(), signupEmail.trim(), signupPassword, planId, ownerName.trim());
+      const created = await register(companyName.trim(), signupEmail.trim(), signupPassword, planId, ownerName.trim());
       setPendingVerifyEmail(signupEmail.trim());
-      toast.success('Check your email and click the verification link to continue.');
+      if (created.emailSent === false) {
+        toast.error(created.emailError || 'Account created, but the verification email could not be sent.');
+      } else {
+        toast.success('Check your email and click the verification link to continue.');
+      }
     } catch (err: any) {
       toast.error(err?.message || 'Could not create account');
     } finally {
@@ -194,8 +198,12 @@ const Login = () => {
     if (!pendingVerifyEmail) return;
     setLoading(true);
     try {
-      await api.auth.resendVerification(pendingVerifyEmail);
-      toast.success('If that account needs verification, a new link was sent.');
+      const result = await api.auth.resendVerification(pendingVerifyEmail);
+      if (result.delivered === false) {
+        toast.error(result.error || 'Could not send the verification email. Check Super Admin SMTP settings.');
+      } else {
+        toast.success('If that account needs verification, a new link was sent.');
+      }
     } catch (err: any) {
       toast.error(err?.message || 'Could not resend verification email');
     } finally {
@@ -332,7 +340,7 @@ const Login = () => {
                     Verify your email
                   </h1>
                   <p className="text-sm text-[#64748B] mt-2 mb-7">
-                    We sent a verification link to <span className="font-medium text-[#0F172A]">{pendingVerifyEmail}</span>. Click that link, then this page will open your workspace.
+                    We send a verification link to <span className="font-medium text-[#0F172A]">{pendingVerifyEmail}</span>. Click that link, then this page will open your workspace. If nothing arrives, check spam or tap resend — Super Admin SMTP must be configured.
                   </p>
                 </>
               )}

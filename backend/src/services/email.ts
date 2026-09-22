@@ -378,8 +378,10 @@ export type SendPlatformOpts = {
   vars?: Record<string, string>;
 };
 
+export type PlatformSendResult = { ok: true } | { ok: false; error: string };
+
 /** FieldPro system mail. Always Super Admin SMTP. Sender cannot be overridden. */
-export async function sendPlatformEmail(opts: SendPlatformOpts): Promise<boolean> {
+export async function sendPlatformEmailResult(opts: SendPlatformOpts): Promise<PlatformSendResult> {
   const cfg = await loadPlatformSmtp();
   const vars = expandLinkAliases(opts.vars ?? {});
   let subject = opts.subject || '';
@@ -418,9 +420,14 @@ export async function sendPlatformEmail(opts: SendPlatformOpts): Promise<boolean
       error: 'not_configured',
       preview: process.env.NODE_ENV === 'production' ? undefined : text.slice(0, 240),
     });
-    return false;
+    return { ok: false, error: 'Platform SMTP is not configured. Set it in Super Admin → Settings, then resend.' };
   }
-  return (await deliver('platform', cfg, opts.to, subject, text, html)).ok;
+  const result = await deliver('platform', cfg, opts.to, subject, text, html);
+  return result.ok ? { ok: true } : { ok: false, error: result.error };
+}
+
+export async function sendPlatformEmail(opts: SendPlatformOpts): Promise<boolean> {
+  return (await sendPlatformEmailResult(opts)).ok;
 }
 
 export type SendTenantOpts = {

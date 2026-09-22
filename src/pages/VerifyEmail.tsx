@@ -49,8 +49,12 @@ export default function VerifyEmail() {
     if (Object.values(next).some(Boolean)) return;
     setSending(true);
     try {
-      await api.auth.resendVerification(email.trim());
-      toast.success('If that account needs verification, a new link was sent.');
+      const result = await api.auth.resendVerification(email.trim());
+      if (result.delivered === false) {
+        toast.error(result.error || 'Could not send the verification email. Check Super Admin SMTP settings.');
+      } else {
+        toast.success('If that account needs verification, a new link was sent.');
+      }
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'Could not resend verification email');
     } finally {

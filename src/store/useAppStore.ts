@@ -12,7 +12,7 @@ interface AuthState {
   permissions: string[];
   planFeatures: string[];
   login: (email: string, password: string) => Promise<boolean>;
-  register: (companyName: string, email: string, password: string, planId?: string, name?: string) => Promise<{ requiresVerification: boolean }>;
+  register: (companyName: string, email: string, password: string, planId?: string, name?: string) => Promise<{ requiresVerification: boolean; emailSent?: boolean; emailError?: string }>;
   acceptSession: (data: any) => void;
   logout: () => Promise<void>;
   hydrate: () => Promise<void>;
@@ -66,8 +66,12 @@ export const useAppStore = create<AuthState>((set, get) => ({
   },
 
   register: async (companyName, email, password, planId, name) => {
-    await api.auth.register(companyName, email, password, planId, name);
-    return { requiresVerification: true };
+    const data = await api.auth.register(companyName, email, password, planId, name);
+    return {
+      requiresVerification: true,
+      emailSent: data.emailSent,
+      emailError: data.emailError,
+    };
   },
 
   acceptSession: (data: any) => {

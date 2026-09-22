@@ -324,7 +324,7 @@ export async function loadTenantTemplate(client, companyId, type) {
     return rows[0];
 }
 /** FieldPro system mail. Always Super Admin SMTP. Sender cannot be overridden. */
-export async function sendPlatformEmail(opts) {
+export async function sendPlatformEmailResult(opts) {
     const cfg = await loadPlatformSmtp();
     const vars = expandLinkAliases(opts.vars ?? {});
     let subject = opts.subject || '';
@@ -364,9 +364,13 @@ export async function sendPlatformEmail(opts) {
             error: 'not_configured',
             preview: process.env.NODE_ENV === 'production' ? undefined : text.slice(0, 240),
         });
-        return false;
+        return { ok: false, error: 'Platform SMTP is not configured. Set it in Super Admin → Settings, then resend.' };
     }
-    return (await deliver('platform', cfg, opts.to, subject, text, html)).ok;
+    const result = await deliver('platform', cfg, opts.to, subject, text, html);
+    return result.ok ? { ok: true } : { ok: false, error: result.error };
+}
+export async function sendPlatformEmail(opts) {
+    return (await sendPlatformEmailResult(opts)).ok;
 }
 /** Tenant-to-customer CRM mail. Always that company's SMTP. Sender cannot be overridden. */
 export async function sendTenantEmail(client, companyId, opts) {

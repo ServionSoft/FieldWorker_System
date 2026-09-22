@@ -11,7 +11,7 @@ import { audit } from '../../utils/audit.js';
 import type { AuthedRequest, AppRole } from '../../types.js';
 import { loadEffectivePermissions, PERMISSIONS } from '../rbac/permissions.js';
 import { notify, notifyPlatformAdmins } from '../../utils/helpers.js';
-import { sendPlatformEmail } from '../../services/email.js';
+import { sendPlatformEmail, sendPlatformEmailResult } from '../../services/email.js';
 import { env, corsOrigins } from '../../config/env.js';
 import { loadPlanFeatures } from '../billing/plan-features.js';
 import { isCompanyProfileComplete } from '../company/onboarding.js';
@@ -162,16 +162,20 @@ async function issueEmailVerification(
   );
   const verifyLink = `${appBaseUrl()}/verify-email?token=${encodeURIComponent(token)}`;
   try {
-    await sendPlatformEmail({
+    const sent = await sendPlatformEmailResult({
       to: email,
       templateType: 'email_verification',
       vars: personVars(vars.name, vars.companyName, { verifyLink, verifyUrl: verifyLink }),
     });
+    if (!sent.ok) console.error('email verification send failed', sent.error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`Email verification token for ${email}: ${token}`);
+    }
+    return sent;
   } catch (err) {
-    console.error('email verification send failed', err);
-  }
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`Email verification token for ${email}: ${token}`);
+    const error = err instanceof Error ? err.message : 'Could not send verification email';
+    console.error('email verification send failed', error);
+    return { ok: false as const, error };
   }
 }
 
@@ -250,7 +254,7 @@ authRouter.post('/register', wrap(async (req, res) => {
     };
   });
 
-  await issueEmailVerification(created.userId, created.email, {
+  const emailed = await issueEmailVerification(created.userId, created.email, {
     name: created.name,
     companyName: created.companyName,
   });
@@ -259,6 +263,8 @@ authRouter.post('/register', wrap(async (req, res) => {
     ok: true,
     requiresVerification: true,
     email: created.email,
+    emailSent: emailed.ok,
+    emailError: emailed.ok ? undefined : emailed.error,
   });
 }));
 
@@ -335,9 +341,14 @@ authRouter.post('/resend-verification', wrap(async (req, res) => {
   );
   const row = rows[0];
   if (row && !row.email_verified_at && !row.is_platform_admin) {
-    await issueEmailVerification(row.id, row.email, {
+    const emailed = await issueEmailVerification(row.id, row.email, {
       name: row.name,
       companyName: row.company_name || row.name,
+    });
+    return res.json({
+      ok: true,
+      delivered: emailed.ok,
+      error: emailed.ok ? undefined : emailed.error,
     });
   }
   res.json({ ok: true });
@@ -358,7 +369,25 @@ authRouter.post('/login', wrap(async (req, res) => {
     throw unauthorized('Invalid credentials');
   }
   if (!row.is_platform_admin && !row.email_verified_at) {
-    throw emailUnverified('Verify your email before signing in. Check your inbox for the FieldPro link.');
+    const profile = await pool.query(
+      `SELECT u.name, c.name AS company_name
+       FROM users u
+       LEFT JOIN company_members m ON m.user_id = u.id AND m.status = 'active'
+       LEFT JOIN companies c ON c.id = m.company_id AND c.deleted_at IS NULL
+       WHERE u.id = $1
+       ORDER BY m.created_at ASC NULLS LAST
+       LIMIT 1`,
+      [row.id],
+    );
+    const emailed = await issueEmailVerification(row.id, body.email, {
+      name: profile.rows[0]?.name || body.email,
+      companyName: profile.rows[0]?.company_name || profile.rows[0]?.name || 'FieldPro',
+    });
+    throw emailUnverified(
+      emailed.ok
+        ? 'Verify your email before signing in. Check your inbox for the FieldPro link.'
+        : `Verify your email. We could not send the link: ${emailed.error}`,
+    );
   }
   const session = await loadSession(row.id);
   if (!session) throw unauthorized('No active membership');

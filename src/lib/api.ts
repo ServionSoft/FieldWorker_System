@@ -104,14 +104,14 @@ export const api = {
     login: (email: string, password: string) =>
       request<any>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
     register: (companyName: string, email: string, password: string, planId?: string, name?: string) =>
-      request<{ ok: boolean; requiresVerification?: boolean; email?: string; accessToken?: string; refreshToken?: string }>(
+      request<{ ok: boolean; requiresVerification?: boolean; email?: string; emailSent?: boolean; emailError?: string; accessToken?: string; refreshToken?: string }>(
         '/auth/register',
         { method: 'POST', body: JSON.stringify({ companyName, email, password, planId, name }) },
       ),
     verifyEmail: (token: string) =>
       request<any>('/auth/verify-email', { method: 'POST', body: JSON.stringify({ token }) }),
     resendVerification: (email: string) =>
-      request('/auth/resend-verification', { method: 'POST', body: JSON.stringify({ email }) }),
+      request<{ ok: boolean; delivered?: boolean; error?: string }>('/auth/resend-verification', { method: 'POST', body: JSON.stringify({ email }) }),
     logout: (refreshToken?: string) =>
       request('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) }),
     me: () => request<any>('/auth/me'),
