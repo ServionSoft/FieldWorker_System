@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertCircle, Eye, EyeOff, Mail, Lock, Building2, CheckCircle2, ArrowRight,
-  CalendarDays, Radio, FileText, BarChart3, Shield, UserRound, Star, Briefcase, Clock, Store,
+  CalendarDays, Radio, FileText, BarChart3, UserRound, Star, Briefcase, Clock, Store,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -37,30 +37,6 @@ function signInErrorMessage(err: unknown) {
   }
   return `Could not sign in. Is the API running on port ${apiPortHint()}?`;
 }
-
-const roleCredentials = [
-  {
-    label: 'Super Admin',
-    hint: 'Platform overview & management',
-    email: 'marcus@fieldpro.io',
-    icon: Shield,
-    iconClass: 'text-[#2563EB] bg-[#EFF6FF]',
-  },
-  {
-    label: 'Office Admin',
-    hint: 'Manage your shop & team',
-    email: 'sarah@mitchell-plumbing.com',
-    icon: Building2,
-    iconClass: 'text-[#16A34A] bg-[#F0FDF4]',
-  },
-  {
-    label: 'Field Worker',
-    hint: 'View jobs & updates on the go',
-    email: 'jake@mitchell-plumbing.com',
-    icon: UserRound,
-    iconClass: 'text-[#7C3AED] bg-[#F5F3FF]',
-  },
-];
 
 const capabilities = [
   { title: 'Smart Scheduling', desc: 'Optimize routes and assignments', icon: CalendarDays, tone: 'bg-[#2563EB]/30 text-white' },
@@ -178,7 +154,7 @@ const Login = () => {
         else localStorage.removeItem('fp_remember_email');
         goHome();
       } else {
-        setError('Invalid credentials. Try a demo account below.');
+        setError('Invalid email or password.');
       }
     } catch (err) {
       setLoading(false);
@@ -188,21 +164,6 @@ const Login = () => {
         toast.message('Verify your email to sign in. We can resend the link if you need it.');
         return;
       }
-      setError(signInErrorMessage(err));
-    }
-  };
-
-  const quickLogin = async (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword('demo123');
-    setLoading(true);
-    try {
-      const success = await login(demoEmail, 'demo123');
-      setLoading(false);
-      if (success) goHome();
-      else setError('Invalid credentials. Try a demo account below.');
-    } catch (err) {
-      setLoading(false);
       setError(signInErrorMessage(err));
     }
   };
@@ -588,36 +549,6 @@ const Login = () => {
               )}
             </motion.div>
           </AnimatePresence>
-
-          {activeTab === 'login' && (
-            <div className="mt-8">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-px flex-1 bg-[#E5E7EB]" />
-                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Or sign in as</span>
-                <div className="h-px flex-1 bg-[#E5E7EB]" />
-              </div>
-              <div className="grid gap-2">
-                {roleCredentials.map((cred) => (
-                  <button
-                    key={cred.email}
-                    type="button"
-                    disabled={loading}
-                    onClick={() => quickLogin(cred.email)}
-                    className="flex items-center gap-3 min-h-11 w-full rounded-[10px] border border-[#E5E7EB] bg-white px-3 py-2.5 text-left hover:border-[#BFDBFE] hover:bg-[#F8FAFC] transition-colors disabled:opacity-60"
-                  >
-                    <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${cred.iconClass}`}>
-                      <cred.icon className="w-4 h-4" strokeWidth={1.75} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold text-[#0F172A] leading-tight">{cred.label}</span>
-                      <span className="block text-xs text-[#64748B] mt-0.5 leading-snug">{cred.hint}</span>
-                    </span>
-                    <ArrowRight className="w-4 h-4 text-slate-400 shrink-0" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
 
           <p className="text-center text-[11px] leading-relaxed text-slate-400 mt-8 px-1">
             <Lock className="w-3 h-3 inline-block mr-1 -mt-0.5" />

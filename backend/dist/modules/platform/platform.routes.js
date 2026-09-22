@@ -392,7 +392,7 @@ platformRouter.get('/email-templates', platformRoute(async (_req, res, client) =
 }));
 platformRouter.patch('/email-templates/:type', platformRoute(async (req, res, client) => {
     const type = z.enum([
-        'password_reset', 'email_verification', 'welcome', 'tenant_invitation', 'system_notification', 'subscription_started', 'payment_failed',
+        'password_reset', 'email_verification', 'welcome', 'tenant_invitation', 'system_notification', 'subscription_started', 'payment_failed', 'contact_confirmation',
     ]).parse(req.params.type);
     const body = z.object({
         name: z.string().min(1).optional(),

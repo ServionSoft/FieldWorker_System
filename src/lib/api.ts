@@ -164,6 +164,8 @@ export const api = {
     portal: () => request<{ url: string }>('/billing/portal', { method: 'POST' }),
   },
   publicPlans: () => request<{ items: any[]; stripeConfigured: boolean }>('/plans'),
+  contact: (body: { firstName: string; lastName: string; email: string; company?: string; message: string }) =>
+    request<{ ok: boolean }>('/contact', { method: 'POST', body: JSON.stringify(body) }),
   customers: {
     list: (q?: Record<string, string>) => {
       const params = new URLSearchParams({ pageSize: '100', archived: 'active', ...q });

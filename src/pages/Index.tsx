@@ -13,8 +13,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useEffect, useState } from 'react';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { FieldError } from '@/components/crm/FieldError';
+import { applyErrors, emailError, requiredText } from '@/lib/formValidation';
 
 const fadeUp = { hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } };
 
@@ -57,7 +59,9 @@ const navLinks = [
 
 const Index = () => {
   const navigate = useNavigate();
-  const [contactEmail, setContactEmail] = useState('');
+  const [contact, setContact] = useState({ firstName: '', lastName: '', email: '', company: '', message: '' });
+  const [contactErrors, setContactErrors] = useState<Record<string, string>>({});
+  const [contactSending, setContactSending] = useState(false);
   const [plans, setPlans] = useState(fallbackPlans);
 
   useEffect(() => {
@@ -309,20 +313,59 @@ const Index = () => {
             variants={fadeUp}
             transition={{ delay: 0.08 }}
             className="flex flex-col gap-4 rounded-lg border border-border bg-card p-6"
-            onSubmit={(e) => {
+            noValidate
+            onSubmit={async (e) => {
               e.preventDefault();
-              toast.success("Message sent! We'll get back to you within 24 hours.");
-              setContactEmail('');
+              const next = applyErrors({
+                firstName: requiredText(contact.firstName, 'First name'),
+                lastName: requiredText(contact.lastName, 'Last name'),
+                email: emailError(contact.email, { required: true }),
+                message: contact.message.trim().length < 10 ? 'Message must be at least 10 characters' : '',
+              });
+              setContactErrors(next);
+              if (Object.values(next).some(Boolean)) return;
+              setContactSending(true);
+              try {
+                await api.contact({
+                  firstName: contact.firstName.trim(),
+                  lastName: contact.lastName.trim(),
+                  email: contact.email.trim(),
+                  company: contact.company.trim() || undefined,
+                  message: contact.message.trim(),
+                });
+                setContact({ firstName: '', lastName: '', email: '', company: '', message: '' });
+                toast.success("Message sent. Check your inbox for a confirmation from FieldPro.");
+              } catch (err) {
+                toast.error(err instanceof ApiError ? err.message : 'Could not send your message. Try again later.');
+              } finally {
+                setContactSending(false);
+              }
             }}
           >
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="contact-first">First Name</Label>
-                <Input id="contact-first" name="firstName" placeholder="John" autoComplete="given-name" />
+                <Input
+                  id="contact-first"
+                  name="firstName"
+                  placeholder="John"
+                  autoComplete="given-name"
+                  value={contact.firstName}
+                  onChange={(e) => { setContact((c) => ({ ...c, firstName: e.target.value })); setContactErrors((x) => ({ ...x, firstName: '' })); }}
+                />
+                <FieldError id="firstName-error" message={contactErrors.firstName} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="contact-last">Last Name</Label>
-                <Input id="contact-last" name="lastName" placeholder="Smith" autoComplete="family-name" />
+                <Input
+                  id="contact-last"
+                  name="lastName"
+                  placeholder="Smith"
+                  autoComplete="family-name"
+                  value={contact.lastName}
+                  onChange={(e) => { setContact((c) => ({ ...c, lastName: e.target.value })); setContactErrors((x) => ({ ...x, lastName: '' })); }}
+                />
+                <FieldError id="lastName-error" message={contactErrors.lastName} />
               </div>
             </div>
             <div className="flex flex-col gap-1.5">
@@ -333,21 +376,37 @@ const Index = () => {
                 type="email"
                 placeholder="john@company.com"
                 autoComplete="email"
-                value={contactEmail}
-                onChange={(e) => setContactEmail(e.target.value)}
+                value={contact.email}
+                onChange={(e) => { setContact((c) => ({ ...c, email: e.target.value })); setContactErrors((x) => ({ ...x, email: '' })); }}
               />
+              <FieldError id="email-error" message={contactErrors.email} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="contact-company">Company</Label>
-              <Input id="contact-company" name="company" placeholder="Your Company" autoComplete="organization" />
+              <Input
+                id="contact-company"
+                name="company"
+                placeholder="Your Company"
+                autoComplete="organization"
+                value={contact.company}
+                onChange={(e) => setContact((c) => ({ ...c, company: e.target.value }))}
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="contact-message">Message</Label>
-              <Textarea id="contact-message" name="message" placeholder="Tell us about your needs..." className="min-h-[100px]" />
+              <Textarea
+                id="contact-message"
+                name="message"
+                placeholder="Tell us about your needs..."
+                className="min-h-[100px]"
+                value={contact.message}
+                onChange={(e) => { setContact((c) => ({ ...c, message: e.target.value })); setContactErrors((x) => ({ ...x, message: '' })); }}
+              />
+              <FieldError id="message-error" message={contactErrors.message} />
             </div>
-            <Button type="submit" className="w-full">
-              Send Message
-              <ArrowRight data-icon="inline-end" />
+            <Button type="submit" className="w-full" disabled={contactSending}>
+              {contactSending ? 'Sending…' : 'Send Message'}
+              {!contactSending && <ArrowRight data-icon="inline-end" />}
             </Button>
           </motion.form>
         </div>

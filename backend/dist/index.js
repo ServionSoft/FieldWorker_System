@@ -34,6 +34,7 @@ import { twilioWebhooks } from './modules/comms/twilio.webhooks.js';
 import { membersRouter, invitePublicRouter } from './modules/members/members.routes.js';
 import { billingRouter, publicPlansRouter } from './modules/billing/billing.routes.js';
 import { stripeWebhookHandler } from './modules/billing/stripe.webhooks.js';
+import { contactRouter } from './modules/contact/contact.routes.js';
 import { profileRouter } from './modules/profile/profile.routes.js';
 const app = express();
 const server = http.createServer(app);
@@ -60,6 +61,13 @@ app.use('/api/auth', rateLimit({
     message: { error: { code: 'RATE_LIMITED', message: 'Too many authentication attempts. Try again later.' } },
 }), authRouter);
 app.use('/api/plans', publicPlansRouter);
+app.use('/api/contact', rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 8,
+    standardHeaders: true,
+    legacyHeaders: true,
+    message: { error: { code: 'RATE_LIMITED', message: 'Too many messages. Try again later.' } },
+}), contactRouter);
 app.use('/api/invites', invitePublicRouter);
 app.use('/api/members', membersRouter);
 app.use('/api/billing', billingRouter);

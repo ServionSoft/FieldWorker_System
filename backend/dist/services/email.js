@@ -24,6 +24,7 @@ export const PLATFORM_TEMPLATE_TYPES = [
     'system_notification',
     'subscription_started',
     'payment_failed',
+    'contact_confirmation',
 ];
 const PLATFORM_TEMPLATE_FALLBACKS = {
     password_reset: {
@@ -53,6 +54,10 @@ const PLATFORM_TEMPLATE_FALLBACKS = {
     payment_failed: {
         subject: 'Payment failed for FieldPro',
         body: 'Payment failed for {companyName}. Please update billing.',
+    },
+    contact_confirmation: {
+        subject: 'We received your message — FieldPro',
+        body: 'Hi {name},\n\nThanks for contacting FieldPro. We received your message and will get back to you within 24 hours.\n\nYour message:\n{message}\n\n— FieldPro',
     },
 };
 export const TENANT_TEMPLATE_TYPES = [
