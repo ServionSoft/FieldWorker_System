@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '@/lib/api';
+import { useAppStore } from '@/store/useAppStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -70,44 +71,86 @@ function isUnpaid(status?: string) {
   return s === 'open' || s === 'draft' || s === 'uncollectible' || s === 'past_due';
 }
 
+function billingLooksCurrent(data: any) {
+  const status = String(data?.subscription?.status || '').toLowerCase();
+  const invoices: SubInvoice[] = data?.invoices || [];
+  const hasOpen = invoices.some((i) => isUnpaid(i.status));
+  return (status === 'active' || status === 'trial') && !hasOpen;
+}
+
 export function BillingSettings() {
   const [params, setParams] = useSearchParams();
+  const hydrate = useAppStore((s) => s.hydrate);
   const [billing, setBilling] = useState<any>(null);
   const [checkoutId, setCheckoutId] = useState<string | null>(null);
   const [portalBusy, setPortalBusy] = useState(false);
 
   const load = async () => {
     try {
-      setBilling(await api.billing.get());
+      const data = await api.billing.get();
+      setBilling(data);
+      await hydrate();
+      return data;
     } catch {
       toast.error('Could not load billing');
+      return null;
     }
   };
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+  }, []);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void load();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   useEffect(() => {
     const checkout = params.get('checkout');
-    if (checkout === 'success') {
-      toast.success('Subscription updated');
-      void load();
-    } else if (checkout === 'cancel') {
+    if (!checkout) return;
+
+    if (checkout === 'cancel') {
       toast.message('Checkout canceled');
     }
-    if (checkout) {
+
+    let cancelled = false;
+    const run = async () => {
+      if (checkout === 'success') {
+        toast.success('Payment received. Updating subscription…');
+        for (let i = 0; i < 6 && !cancelled; i += 1) {
+          const data = await load();
+          if (data && billingLooksCurrent(data)) break;
+          await new Promise((r) => setTimeout(r, 1500));
+        }
+      } else {
+        await load();
+      }
+      if (cancelled) return;
       const next = new URLSearchParams(params);
       next.delete('checkout');
       setParams(next, { replace: true });
-    }
+    };
+    void run();
+    return () => { cancelled = true; };
   }, []);
 
   const startCheckout = async (planId: string) => {
     setCheckoutId(planId);
     try {
-      const { url } = await api.billing.checkout(planId, 'monthly');
-      window.location.href = url;
+      const result = await api.billing.checkout(planId, 'monthly');
+      if (result.url) {
+        window.location.href = result.url;
+        return;
+      }
+      toast.success(result.applied ? 'Plan updated' : 'Subscription updated');
+      await load();
     } catch (e: any) {
       toast.error(e?.message || 'Checkout failed');
+    } finally {
       setCheckoutId(null);
     }
   };

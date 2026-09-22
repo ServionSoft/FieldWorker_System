@@ -7,6 +7,8 @@ import { badRequest, notFound } from '../../utils/errors.js';
 import { stripeClient, stripeConfigured, publicAppUrl } from '../../services/stripe.js';
 import { wrap } from '../../utils/async.js';
 import { pool } from '../../db/pool.js';
+import { persistStripeSubscription, syncCompanyBillingFromStripe } from './stripe-sync.js';
+const LIVE_SUB_STATUSES = new Set(['active', 'trialing', 'past_due', 'unpaid', 'incomplete', 'paused']);
 function mapPlan(p) {
     return {
         id: p.id,
@@ -22,15 +24,39 @@ function mapPlan(p) {
         stripePriceIdYearly: p.stripe_price_id_yearly,
     };
 }
-export const publicPlansRouter = Router();
-publicPlansRouter.get('/', wrap(async (_req, res) => {
-    const { rows } = await pool.query(`SELECT * FROM subscription_plans ORDER BY price_cents`);
-    res.json({ items: rows.map(mapPlan), stripeConfigured: stripeConfigured() });
-}));
-export const billingRouter = Router();
-billingRouter.use(requireAuth, requireTenant, requireRole('admin'), requirePermission('billing.manage'));
-billingRouter.get('/', tenantRoute(async (req, res, client) => {
-    const companyId = req.auth.companyId;
+function planAmountCents(p, interval) {
+    const amountCents = interval === 'yearly'
+        ? Number(p.price_cents_yearly ?? Number(p.price_cents) * 12)
+        : Number(p.price_cents);
+    if (!Number.isFinite(amountCents) || amountCents <= 0)
+        throw badRequest('Plan price is not configured');
+    return Math.round(amountCents);
+}
+function priceDataForPlan(p, planId, interval) {
+    return {
+        currency: 'usd',
+        unit_amount: planAmountCents(p, interval),
+        recurring: { interval: interval === 'yearly' ? 'year' : 'month' },
+        product_data: {
+            name: `FieldPro ${p.name}`,
+            metadata: { planId },
+        },
+    };
+}
+async function stripePriceIdForPlan(stripe, p, planId, interval) {
+    const configured = interval === 'yearly' ? p.stripe_price_id_yearly : p.stripe_price_id_monthly;
+    if (configured)
+        return configured;
+    const price = await stripe.prices.create({
+        currency: 'usd',
+        unit_amount: planAmountCents(p, interval),
+        recurring: { interval: interval === 'yearly' ? 'year' : 'month' },
+        product_data: { name: `FieldPro ${p.name}` },
+        metadata: { planId, interval },
+    });
+    return price.id;
+}
+async function billingPayload(client, companyId) {
     const company = await client.query(`SELECT c.*, p.name AS plan_name, p.price_cents, p.features, p.feature_keys, p.max_workers, p.max_jobs
      FROM companies c JOIN subscription_plans p ON p.id = c.plan_id WHERE c.id = $1`, [companyId]);
     const c = company.rows[0];
@@ -38,7 +64,7 @@ billingRouter.get('/', tenantRoute(async (req, res, client) => {
         throw notFound('Company');
     const invoices = await client.query(`SELECT * FROM billing_invoices WHERE company_id = $1 ORDER BY created_at DESC LIMIT 50`, [companyId]);
     const plans = await client.query(`SELECT * FROM subscription_plans ORDER BY price_cents`);
-    res.json({
+    return {
         stripeConfigured: stripeConfigured(),
         subscription: {
             planId: c.plan_id,
@@ -52,7 +78,7 @@ billingRouter.get('/', tenantRoute(async (req, res, client) => {
         invoices: invoices.rows.map((i) => ({
             id: i.id,
             number: i.number,
-            amount: i.amount_cents / 100,
+            amount: Number(i.amount_cents) / 100,
             currency: i.currency,
             status: i.status,
             hostedUrl: i.hosted_url,
@@ -62,7 +88,19 @@ billingRouter.get('/', tenantRoute(async (req, res, client) => {
             createdAt: i.created_at.toISOString(),
         })),
         plans: plans.rows.map(mapPlan),
-    });
+    };
+}
+export const publicPlansRouter = Router();
+publicPlansRouter.get('/', wrap(async (_req, res) => {
+    const { rows } = await pool.query(`SELECT * FROM subscription_plans ORDER BY price_cents`);
+    res.json({ items: rows.map(mapPlan), stripeConfigured: stripeConfigured() });
+}));
+export const billingRouter = Router();
+billingRouter.use(requireAuth, requireTenant, requireRole('admin'), requirePermission('billing.manage'));
+billingRouter.get('/', tenantRoute(async (req, res, client) => {
+    const companyId = req.auth.companyId;
+    await syncCompanyBillingFromStripe(companyId, client);
+    res.json(await billingPayload(client, companyId));
 }));
 billingRouter.post('/checkout', tenantRoute(async (req, res, client) => {
     const body = z.object({
@@ -81,11 +119,7 @@ billingRouter.post('/checkout', tenantRoute(async (req, res, client) => {
     if (!plan.rowCount)
         throw notFound('Plan');
     const p = plan.rows[0];
-    const amountCents = body.interval === 'yearly'
-        ? Number(p.price_cents_yearly ?? p.price_cents * 12)
-        : Number(p.price_cents);
-    if (!Number.isFinite(amountCents) || amountCents <= 0)
-        throw badRequest('Plan price is not configured');
+    const priceData = priceDataForPlan(p, body.planId, body.interval);
     let customerId = c.stripe_customer_id;
     if (!customerId) {
         const customer = await stripe.customers.create({
@@ -96,32 +130,58 @@ billingRouter.post('/checkout', tenantRoute(async (req, res, client) => {
         customerId = customer.id;
         await client.query(`UPDATE companies SET stripe_customer_id = $2 WHERE id = $1`, [companyId, customerId]);
     }
+    let existingSub = null;
+    if (c.stripe_subscription_id) {
+        try {
+            existingSub = await stripe.subscriptions.retrieve(c.stripe_subscription_id);
+        }
+        catch {
+            existingSub = null;
+        }
+    }
+    if (!existingSub || !LIVE_SUB_STATUSES.has(existingSub.status)) {
+        const listed = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 10 });
+        existingSub = listed.data.find((s) => LIVE_SUB_STATUSES.has(s.status)) || null;
+    }
+    if (existingSub && LIVE_SUB_STATUSES.has(existingSub.status)) {
+        const item = existingSub.items.data[0];
+        if (!item)
+            throw badRequest('Subscription has no items to update');
+        const priceId = await stripePriceIdForPlan(stripe, p, body.planId, body.interval);
+        const updated = await stripe.subscriptions.update(existingSub.id, {
+            items: [{ id: item.id, price: priceId }],
+            metadata: { companyId, planId: body.planId, interval: body.interval },
+            proration_behavior: 'always_invoice',
+            payment_behavior: 'pending_if_incomplete',
+            expand: ['latest_invoice'],
+        });
+        await persistStripeSubscription(companyId, updated, c.status, client);
+        await syncCompanyBillingFromStripe(companyId, client);
+        const latest = updated.latest_invoice;
+        const invoice = typeof latest === 'string' ? await stripe.invoices.retrieve(latest) : latest;
+        if (invoice && invoice.status !== 'paid' && invoice.hosted_invoice_url) {
+            res.json({ url: invoice.hosted_invoice_url, applied: false });
+            return;
+        }
+        res.json({ url: null, applied: true });
+        return;
+    }
+    const trialRow = c.status === 'trial' && !c.stripe_subscription_id
+        ? await client.query(`SELECT trial_days FROM platform_settings WHERE id = 1`)
+        : null;
     const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
         customer: customerId,
-        line_items: [{
-                quantity: 1,
-                price_data: {
-                    currency: 'usd',
-                    unit_amount: Math.round(amountCents),
-                    recurring: { interval: body.interval === 'yearly' ? 'year' : 'month' },
-                    product_data: {
-                        name: `FieldPro ${p.name}`,
-                        metadata: { planId: body.planId },
-                    },
-                },
-            }],
+        line_items: [{ quantity: 1, price_data: priceData }],
         success_url: `${publicAppUrl()}/admin/settings?tab=billing&checkout=success`,
         cancel_url: `${publicAppUrl()}/admin/settings?tab=billing&checkout=cancel`,
         metadata: { companyId, planId: body.planId, interval: body.interval },
         subscription_data: {
             metadata: { companyId, planId: body.planId, interval: body.interval },
-            trial_period_days: c.status === 'trial'
-                ? (await client.query(`SELECT trial_days FROM platform_settings WHERE id = 1`)).rows[0]?.trial_days ?? 14
-                : undefined,
+            trial_period_days: trialRow ? (trialRow.rows[0]?.trial_days ?? 14) : undefined,
         },
     });
-    res.json({ url: session.url });
+    res.json({ url: session.url, applied: false });
 }));
 billingRouter.post('/portal', tenantRoute(async (req, res, client) => {
     const stripe = stripeClient();
@@ -132,7 +192,7 @@ billingRouter.post('/portal', tenantRoute(async (req, res, client) => {
         throw badRequest('No billing customer yet. Start a subscription first.');
     const portal = await stripe.billingPortal.sessions.create({
         customer: rows[0].stripe_customer_id,
-        return_url: `${publicAppUrl()}/admin/settings?tab=billing`,
+        return_url: `${publicAppUrl()}/admin/settings?tab=billing&checkout=success`,
     });
     res.json({ url: portal.url });
 }));

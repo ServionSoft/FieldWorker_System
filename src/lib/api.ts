@@ -160,7 +160,7 @@ export const api = {
   billing: {
     get: () => request<any>('/billing'),
     checkout: (planId: string, interval: 'monthly' | 'yearly' = 'monthly') =>
-      request<{ url: string }>('/billing/checkout', { method: 'POST', body: JSON.stringify({ planId, interval }) }),
+      request<{ url?: string | null; applied?: boolean }>('/billing/checkout', { method: 'POST', body: JSON.stringify({ planId, interval }) }),
     portal: () => request<{ url: string }>('/billing/portal', { method: 'POST' }),
   },
   publicPlans: () => request<{ items: any[]; stripeConfigured: boolean }>('/plans'),

@@ -29,7 +29,8 @@ export async function upsertBillingInvoice(companyId: string, inv: BillingInvoic
        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8, to_timestamp($9), to_timestamp($10))
        ON CONFLICT (stripe_invoice_id) DO UPDATE SET
          status = excluded.status, hosted_url = excluded.hosted_url, pdf_url = excluded.pdf_url,
-         amount_cents = excluded.amount_cents, number = excluded.number`,
+         amount_cents = excluded.amount_cents, number = excluded.number,
+         period_start = excluded.period_start, period_end = excluded.period_end`,
       [
         companyId,
         inv.id,
