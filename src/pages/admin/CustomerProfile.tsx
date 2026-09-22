@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   ArrowLeft, Mail, MapPin, Edit, Trash2, DollarSign, Briefcase, FileText,
-  Calculator, PhoneCall, StickyNote, Plus, CheckCircle, Users, Home, Activity, Star, Archive,
+  Calculator, PhoneCall, StickyNote, Plus, CheckCircle, Users, Home, Activity, Star, Archive, Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import CommunicationsThread from '@/components/communications/CommunicationsThread';
@@ -72,6 +72,8 @@ const CustomerProfile = () => {
   const [followAssignee, setFollowAssignee] = useState('');
   const [followFilter, setFollowFilter] = useState<'all' | 'today' | 'overdue' | 'upcoming' | 'done' | 'mine'>('all');
   const [templateId, setTemplateId] = useState('');
+  const [emailMessage, setEmailMessage] = useState('');
+  const [sendingRecordId, setSendingRecordId] = useState<string | null>(null);
   const [contactForm, setContactForm] = useState({ firstName: '', lastName: '', phone: '', email: '', isPrimary: false });
   const [addrForm, setAddrForm] = useState({ locationName: 'Home', street: '', unit: '', city: '', state: '', zip: '', gatedProperty: false, isDefault: false });
   const [editForm, setEditForm] = useState({
@@ -638,8 +640,11 @@ const CustomerProfile = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showEmail} onOpenChange={setShowEmail}>
-        <DialogContent>
+      <Dialog open={showEmail} onOpenChange={(open) => {
+        setShowEmail(open);
+        if (!open) { setTemplateId(''); setEmailMessage(''); setSendingRecordId(null); }
+      }}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader><DialogTitle>Send customer email</DialogTitle></DialogHeader>
           <p className="text-xs text-muted-foreground">Sends through your company SMTP (Tenant Email). FieldPro platform SMTP is not used.</p>
           <Select value={templateId} onValueChange={setTemplateId}>
@@ -648,17 +653,136 @@ const CustomerProfile = () => {
               {emailTemplates.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEmail(false)}>Cancel</Button>
-            <Button disabled={!templateId} onClick={async () => {
+          {(() => {
+            const tpl = emailTemplates.find((t: any) => t.id === templateId);
+            const type = tpl?.type as string | undefined;
+            const sendRecord = async (payload: Record<string, string>) => {
+              const key = payload.invoiceId || payload.jobId || payload.estimateId || payload.followUpId || 'note';
+              setSendingRecordId(key);
               try {
-                await api.communications.sendTemplate({ templateId, customerId: customer.id });
-                setShowEmail(false); qc.invalidateQueries({ queryKey: ['communications'] }); refresh();
+                await api.communications.sendTemplate({
+                  templateId,
+                  customerId: customer.id,
+                  ...payload,
+                });
+                qc.invalidateQueries({ queryKey: ['communications'] });
+                refresh();
                 toast.success('Email sent');
+                return true;
               } catch (err: any) {
                 toast.error(err?.message || 'Could not send');
+                return false;
+              } finally {
+                setSendingRecordId(null);
               }
-            }}>Send</Button>
+            };
+            if (!type) return null;
+            if (type === 'invoice') {
+              return (
+                <div className="max-h-64 overflow-y-auto space-y-2 border rounded-md p-2">
+                  {customerInvoices.length === 0
+                    ? <p className="text-sm text-muted-foreground text-center py-4">No invoices for this customer</p>
+                    : customerInvoices.map((inv: any) => (
+                      <div key={inv.id} className="flex items-center justify-between gap-2 text-sm border rounded-md px-2 py-1.5">
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{inv.invoiceNumber}</p>
+                          <p className="text-xs text-muted-foreground">{inv.status} · ${Number(inv.total || 0).toLocaleString()}</p>
+                        </div>
+                        <Button size="sm" disabled={sendingRecordId !== null} onClick={() => void sendRecord({ invoiceId: inv.id })}>
+                          {sendingRecordId === inv.id && <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />}
+                          Send
+                        </Button>
+                      </div>
+                    ))}
+                </div>
+              );
+            }
+            if (type === 'appointment') {
+              const appts = customerJobs.filter((j) => j.scheduledDate);
+              const list = appts.length ? appts : customerJobs;
+              return (
+                <div className="max-h-64 overflow-y-auto space-y-2 border rounded-md p-2">
+                  {list.length === 0
+                    ? <p className="text-sm text-muted-foreground text-center py-4">No appointments for this customer</p>
+                    : list.map((j) => (
+                      <div key={j.id} className="flex items-center justify-between gap-2 text-sm border rounded-md px-2 py-1.5">
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{j.title}</p>
+                          <p className="text-xs text-muted-foreground">{j.scheduledDate || 'Unscheduled'}{j.scheduledTime ? ` · ${j.scheduledTime}` : ''}</p>
+                        </div>
+                        <Button size="sm" disabled={sendingRecordId !== null} onClick={() => void sendRecord({ jobId: j.id })}>
+                          {sendingRecordId === j.id && <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />}
+                          Send
+                        </Button>
+                      </div>
+                    ))}
+                </div>
+              );
+            }
+            if (type === 'estimate') {
+              return (
+                <div className="max-h-64 overflow-y-auto space-y-2 border rounded-md p-2">
+                  {customerEstimates.length === 0
+                    ? <p className="text-sm text-muted-foreground text-center py-4">No estimates for this customer</p>
+                    : customerEstimates.map((e) => (
+                      <div key={e.id} className="flex items-center justify-between gap-2 text-sm border rounded-md px-2 py-1.5">
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{e.estimateNumber}</p>
+                          <p className="text-xs text-muted-foreground">{e.status} · ${Number(e.total || 0).toLocaleString()}</p>
+                        </div>
+                        <Button size="sm" disabled={sendingRecordId !== null} onClick={() => void sendRecord({ estimateId: e.id })}>
+                          {sendingRecordId === e.id && <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />}
+                          Send
+                        </Button>
+                      </div>
+                    ))}
+                </div>
+              );
+            }
+            if (type === 'follow_up') {
+              const list = followQ.data ?? [];
+              return (
+                <div className="max-h-64 overflow-y-auto space-y-2 border rounded-md p-2">
+                  {list.length === 0
+                    ? <p className="text-sm text-muted-foreground text-center py-4">No follow-ups for this customer</p>
+                    : list.map((f: any) => (
+                      <div key={f.id} className="flex items-center justify-between gap-2 text-sm border rounded-md px-2 py-1.5">
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{f.title}</p>
+                          <p className="text-xs text-muted-foreground">Due {f.dueDate || '—'}</p>
+                        </div>
+                        <Button size="sm" disabled={sendingRecordId !== null} onClick={() => void sendRecord({ followUpId: f.id })}>
+                          {sendingRecordId === f.id && <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />}
+                          Send
+                        </Button>
+                      </div>
+                    ))}
+                </div>
+              );
+            }
+            return (
+              <div className="space-y-2">
+                <Textarea
+                  placeholder="Optional note for {message} in the template"
+                  value={emailMessage}
+                  onChange={(e) => setEmailMessage(e.target.value)}
+                />
+                <Button
+                  className="w-full"
+                  disabled={sendingRecordId !== null}
+                  onClick={async () => {
+                    const ok = await sendRecord({ message: emailMessage });
+                    if (ok) setShowEmail(false);
+                  }}
+                >
+                  {sendingRecordId === 'note' && <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />}
+                  Send to customer
+                </Button>
+              </div>
+            );
+          })()}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEmail(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
