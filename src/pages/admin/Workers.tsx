@@ -115,7 +115,7 @@ const AdminWorkers = () => {
         toast.success(`${form.name} updated`);
       } else {
         const password = form.password.trim();
-        await addWorker({
+        const created = await addWorker({
           name: form.name.trim(),
           email: form.email.trim(),
           phone: form.phone.trim(),
@@ -123,7 +123,15 @@ const AdminWorkers = () => {
           status: form.status,
           password: password || undefined,
         });
-        toast.success(`${form.name} added. They can sign in with ${form.email}${password ? '' : ' (temporary password: demo1234)'}`);
+        if (created?.emailSent === false) {
+          toast.error(created.emailError || 'Worker added, but the invitation email could not be sent. Check Super Admin SMTP.');
+        } else {
+          toast.success(
+            password
+              ? `${form.name} added. We emailed ${form.email} a sign-in link.`
+              : `${form.name} added. We emailed ${form.email} a link to set their password.`,
+          );
+        }
       }
       closeForm();
     } catch (err: unknown) {
@@ -336,11 +344,11 @@ const AdminWorkers = () => {
                     name="new-password"
                     value={form.password}
                     onChange={e => { setForm({ ...form, password: e.target.value }); setFieldErrors(x => ({ ...x, password: '' })); }}
-                    placeholder="Leave blank for demo1234"
+                    placeholder="Leave blank to email a set-password link"
                     {...fieldInvalidProps('password', fieldErrors.password)}
                   />
                   <FieldError id="password-error" message={fieldErrors.password} />
-                  <p className="text-xs text-muted-foreground">Minimum 8 characters. If blank, the temporary password is demo1234.</p>
+                  <p className="text-xs text-muted-foreground">Optional. If blank, they get an email to set their own password. Super Admin platform SMTP must be configured.</p>
                 </div>
               )}
             </div>

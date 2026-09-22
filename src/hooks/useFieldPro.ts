@@ -136,7 +136,7 @@ export function useFieldPro() {
     deleteCustomer: async (id: string) => { await api.customers.remove(id); await inv('customers'); },
 
     addWorker: async (w: any) => {
-      await api.workers.create({
+      const created = await api.workers.create({
         name: w.name,
         email: w.email,
         phone: w.phone,
@@ -145,6 +145,7 @@ export function useFieldPro() {
         password: w.password,
       });
       await inv('workers');
+      return created as { emailSent?: boolean; emailError?: string };
     },
     updateWorker: async (id: string, updates: any) => { await api.workers.update(id, updates); await inv('workers'); },
     deleteWorker: async (id: string) => { await api.workers.remove(id); await inv('workers'); },

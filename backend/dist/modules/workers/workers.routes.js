@@ -4,12 +4,18 @@ import { requireAuth } from '../../middleware/auth.js';
 import { requirePermission, requireRole, requireTenant } from '../../middleware/rbac.js';
 import { tenantRoute } from '../../middleware/tenant.js';
 import { notFound, conflict } from '../../utils/errors.js';
-import { hashPassword } from '../../utils/crypto.js';
+import { hashPassword, randomToken, sha256 } from '../../utils/crypto.js';
 import { assertPlanLimits, notify, parsePage, pageResult } from '../../utils/helpers.js';
 import { audit } from '../../utils/audit.js';
+import { sendPlatformEmailResult } from '../../services/email.js';
+import { env } from '../../config/env.js';
 export const workersRouter = Router();
 workersRouter.use(requireAuth, requireTenant);
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+function appPublicUrl() {
+    const raw = (env.APP_PUBLIC_URL || env.CORS_ORIGIN || 'http://localhost:8080').split(',')[0];
+    return raw.trim().replace(/\/$/, '');
+}
 function availFromRows(rows) {
     const map = {};
     DAYS.forEach((d, i) => {
@@ -89,12 +95,14 @@ workersRouter.post('/', requireRole('admin'), requirePermission('workers.manage'
     }
     await assertPlanLimits(client, companyId, 'workers', { includePendingInvites: true });
     let userId;
-    if (existing.rowCount) {
+    const isNewUser = !existing.rowCount;
+    if (!isNewUser) {
         userId = existing.rows[0].id;
     }
     else {
-        const password = body.password ?? 'demo1234';
-        const created = await client.query(`INSERT INTO users (email, password_hash, name, phone) VALUES ($1,$2,$3,$4) RETURNING id`, [body.email, await hashPassword(password), body.name, body.phone]);
+        const password = body.password || randomToken();
+        const created = await client.query(`INSERT INTO users (email, password_hash, name, phone, email_verified_at)
+       VALUES ($1,$2,$3,$4, now()) RETURNING id`, [body.email, await hashPassword(password), body.name, body.phone]);
         userId = created.rows[0].id;
     }
     const member = await client.query(`INSERT INTO company_members (company_id, user_id, role, status) VALUES ($1,$2,'field_worker','active') RETURNING id`, [companyId, userId]);
@@ -115,7 +123,36 @@ workersRouter.post('/', requireRole('admin'), requirePermission('workers.manage'
         actorUserId: req.auth.userId, companyId, action: 'worker.create',
         entityType: 'worker', entityId: userId,
     });
-    res.status(201).json(await mapWorker(client, companyId, profile.rows[0].id));
+    const company = await client.query(`SELECT name FROM companies WHERE id = $1`, [companyId]);
+    const companyName = company.rows[0]?.name || 'FieldPro';
+    const loginUrl = `${appPublicUrl()}/login`;
+    let inviteLink = loginUrl;
+    if (isNewUser && !body.password) {
+        const token = randomToken();
+        await client.query(`UPDATE password_reset_tokens SET used_at = now() WHERE user_id = $1 AND used_at IS NULL`, [userId]);
+        await client.query(`INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+       VALUES ($1,$2, now() + interval '7 days')`, [userId, sha256(token)]);
+        inviteLink = `${appPublicUrl()}/reset-password?token=${encodeURIComponent(token)}`;
+    }
+    const emailed = await sendPlatformEmailResult({
+        to: body.email,
+        templateType: 'tenant_invitation',
+        vars: {
+            name: body.name,
+            companyName,
+            role: 'field worker',
+            inviteLink,
+            inviteUrl: inviteLink,
+        },
+    });
+    if (!emailed.ok)
+        console.error('worker welcome email failed', emailed.error);
+    const worker = await mapWorker(client, companyId, profile.rows[0].id);
+    res.status(201).json({
+        ...worker,
+        emailSent: emailed.ok,
+        emailError: emailed.ok ? undefined : emailed.error,
+    });
 }));
 workersRouter.get('/:id', requireRole('admin', 'field_worker'), tenantRoute(async (req, res, client) => {
     if (req.auth.role === 'field_worker' && req.params.id !== req.auth.userId)

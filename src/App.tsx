@@ -53,7 +53,6 @@ import SuperAdminReports from "./pages/super-admin/Reports";
 import SuperAdminSettings from "./pages/super-admin/Settings";
 import SuperAdminAudit from "./pages/super-admin/Audit";
 import SuperAdminCompanyDetail from "./pages/super-admin/CompanyDetail";
-import SuperAdminBillingTest from "./pages/super-admin/BillingTest";
 
 // Worker pages
 import WorkerDashboard from "./pages/worker/Dashboard";
@@ -142,7 +141,6 @@ const router = createBrowserRouter(
         <Route path="settings" element={<SuperAdminSettings />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="audit" element={<SuperAdminAudit />} />
-        <Route path="billing-test" element={<SuperAdminBillingTest />} />
         <Route path="notifications" element={<NotificationsPage />} />
       </Route>
 
