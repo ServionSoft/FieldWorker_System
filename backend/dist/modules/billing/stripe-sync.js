@@ -56,7 +56,8 @@ export async function persistStripeSubscription(companyId, sub, currentStatus = 
        stripe_subscription_id = $2,
        stripe_customer_id = coalesce(stripe_customer_id, $3),
        plan_id = coalesce($4::uuid, plan_id),
-       status = coalesce($5, status)
+       status = coalesce($5, status),
+       trial_ends_at = CASE WHEN $5 = 'active' THEN NULL ELSE trial_ends_at END
      WHERE id = $1`, [companyId, sub.id, customerId, planId, status]);
 }
 async function closeLocalInvoicesPaidOnStripe(companyId, stillOpenStripeIds, client) {

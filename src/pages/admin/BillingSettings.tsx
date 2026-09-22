@@ -192,8 +192,8 @@ export function BillingSettings() {
         <CardContent className="space-y-4">
           <div className="rounded-lg border border-border bg-muted/30 p-4">
             <p className="text-2xl font-heading font-semibold">{sub.planName || 'No plan'}</p>
-            {sub.trialEndsAt && (
-              <p className="text-sm text-muted-foreground mt-1">Trial ends {fmtDate(sub.trialEndsAt)}</p>
+            {sub.status === 'trial' && sub.trialEndsAt && (
+              <p className="text-sm text-muted-foreground mt-1">Trial ends {fmtDate(sub.trialEndsAt)}. Subscribe now to be billed today — the first invoice appears after payment.</p>
             )}
             {(sub.featureKeys || []).length > 0 && (
               <div className="flex flex-wrap gap-1 mt-3">
@@ -242,12 +242,16 @@ export function BillingSettings() {
                       )}
                       <Button
                         size="sm"
-                        variant={current ? 'secondary' : 'outline'}
-                        disabled={current || checkoutId !== null}
+                        variant={current && sub.status !== 'trial' ? 'secondary' : 'outline'}
+                        disabled={(current && sub.status !== 'trial') || checkoutId !== null}
                         onClick={() => { void startCheckout(p.id); }}
                       >
                         {checkoutId === p.id && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
-                        {current ? 'Current plan' : `Switch to ${p.name}`}
+                        {current && sub.status !== 'trial'
+                          ? 'Current plan'
+                          : current
+                            ? 'Subscribe now'
+                            : `Switch to ${p.name}`}
                       </Button>
                     </div>
                   );

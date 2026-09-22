@@ -77,7 +77,10 @@ export async function applyPaymentPaid(companyId: string, inv?: BillingInvoiceIn
   await inTenant(companyId, client, async (c) => {
     if (inv) await upsertBillingInvoice(companyId, { ...inv, status: inv.status || 'paid' }, c);
     await c.query(
-      `UPDATE companies SET status = CASE WHEN status = 'suspended' THEN status ELSE 'active' END WHERE id = $1`,
+      `UPDATE companies SET
+         trial_ends_at = CASE WHEN status = 'suspended' THEN trial_ends_at ELSE NULL END,
+         status = CASE WHEN status = 'suspended' THEN status ELSE 'active' END
+       WHERE id = $1`,
       [companyId],
     );
     await notifyByPermission(c, companyId, 'billing.manage', {

@@ -175,12 +175,14 @@ billingRouter.post('/checkout', tenantRoute(async (req, res, client) => {
     const item = existingSub.items.data[0];
     if (!item) throw badRequest('Subscription has no items to update');
     const priceId = await stripePriceIdForPlan(stripe, p, body.planId, body.interval);
+    const endingTrial = existingSub.status === 'trialing';
     const updated = await stripe.subscriptions.update(existingSub.id, {
       items: [{ id: item.id, price: priceId }],
       metadata: { companyId, planId: body.planId, interval: body.interval },
-      proration_behavior: 'always_invoice',
+      proration_behavior: endingTrial ? 'none' : 'always_invoice',
       payment_behavior: 'pending_if_incomplete',
       expand: ['latest_invoice'],
+      ...(endingTrial ? { trial_end: 'now' as const } : {}),
     });
     await persistStripeSubscription(companyId, updated, c.status as string, client);
     await syncCompanyBillingFromStripe(companyId, client);
@@ -195,20 +197,16 @@ billingRouter.post('/checkout', tenantRoute(async (req, res, client) => {
     return;
   }
 
-  const trialRow = c.status === 'trial' && !c.stripe_subscription_id
-    ? await client.query(`SELECT trial_days FROM platform_settings WHERE id = 1`)
-    : null;
-
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     customer: customerId,
+    payment_method_collection: 'always',
     line_items: [{ quantity: 1, price_data: priceData }],
     success_url: `${publicAppUrl()}/admin/settings?tab=billing&checkout=success`,
     cancel_url: `${publicAppUrl()}/admin/settings?tab=billing&checkout=cancel`,
     metadata: { companyId, planId: body.planId, interval: body.interval },
     subscription_data: {
       metadata: { companyId, planId: body.planId, interval: body.interval },
-      trial_period_days: trialRow ? (trialRow.rows[0]?.trial_days ?? 14) : undefined,
     },
   });
   res.json({ url: session.url, applied: false });
