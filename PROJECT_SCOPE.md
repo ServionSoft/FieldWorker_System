@@ -261,16 +261,13 @@ cd backend && cp .env.example .env && npm install && npm run migrate && npm run 
 npm install && npm run dev
 ```
 
-Password for all seeded users: `demo123`
+Password for local seed only: `demo123`
 
 | Role | Email | Lands on |
 |---|---|---|
-| Super Admin | `marcus@fieldpro.io` | `/super-admin` |
-| Office owner (Pro) | `sarah@mitchell-plumbing.com` | `/admin` |
-| Field worker | `jake@mitchell-plumbing.com` | `/worker` |
-| Office owner (Basic) | `emma@coolbreeze.com` | `/admin` (no calendar/inventory/dispatch) |
+| Super Admin | `platform@fieldpro.local` | `/super-admin` |
 
-Also seeded: SparkVolt Electrical (Enterprise), ProPipe (trial), ArcLight (suspended).
+Do not run `npm run seed` on production.
 
 ---
 

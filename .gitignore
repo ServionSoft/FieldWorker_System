@@ -15,6 +15,7 @@ node_modules/
 # Runtime / local artifacts
 backend/uploads/
 backend/email-delivery-receipts.jsonl
+*backup*.sql
 *.zip
 *.log
 *.tsbuildinfo

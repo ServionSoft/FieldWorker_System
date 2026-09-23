@@ -23,7 +23,8 @@ function authOrSigned(kind) {
                 if (kind === 'document' && p.documentId && p.documentId !== req.params.id) {
                     return next(notFound('Document'));
                 }
-                if (kind === 'file' && p.fileId && p.fileId !== req.params.id) {
+                const fileId = req.params.id || req.path.match(/\/([0-9a-f-]{36})\/download$/i)?.[1];
+                if (kind === 'file' && p.fileId && p.fileId !== fileId) {
                     return next(notFound('File'));
                 }
                 req.auth = {

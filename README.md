@@ -78,17 +78,15 @@ Tokens are stored in `localStorage`:
 
 The API client in `src/lib/api.ts` attaches the access token and refreshes on 401 when possible.
 
-## Demo logins
+## Local seed
 
-Requires a seeded database (see backend README). Password for all seeded users: **`demo123`**
+Requires a local seeded database (see backend README). **Do not seed production.**
+
+Password: **`demo123`**
 
 | Role | Email |
 |------|-------|
-| Super admin | `marcus@fieldpro.io` |
-| Office owner (Mitchell Plumbing) | `sarah@mitchell-plumbing.com` |
-| Field worker | `jake@mitchell-plumbing.com` |
-
-Also seeded: SparkVolt Electrical, CoolBreeze HVAC, and additional companies.
+| Super admin | `platform@fieldpro.local` |
 
 ## Local development checklist
 

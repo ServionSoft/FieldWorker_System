@@ -198,7 +198,7 @@ const CommunicationsThread: React.FC<Props> = ({ toNumber, filter, compact, titl
             </p>
           )}
           {c.type === 'voicemail' && (
-            <Button variant="ghost" size="sm" className="mt-1 h-7 px-2 gap-1 text-xs" onClick={(e) => { e.stopPropagation(); toast.info('Playback not available in demo'); }}>
+            <Button variant="ghost" size="sm" className="mt-1 h-7 px-2 gap-1 text-xs" onClick={(e) => { e.stopPropagation(); toast.info('Voicemail playback is not available yet'); }}>
               <Play className="w-3 h-3" /> Play recording
             </Button>
           )}

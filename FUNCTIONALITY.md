@@ -502,7 +502,7 @@ Owner has all. Admin has all except billing + SMTP. Dispatcher / office / field_
 - **Argon2** passwords; SHA-256 invite/reset/refresh hashes.
 - **AES-GCM** for SMTP passwords (`SETTINGS_ENCRYPTION_KEY`).
 - Isolation test script: `npm run test:isolation`.
-- Seeded demo world: Mitchell Plumbing (Pro), SparkVolt (Enterprise), CoolBreeze (Basic), ProPipe (trial), ArcLight (suspended). Password `demo123`.
+- Local seed: plans + `platform@fieldpro.local` (password `demo123`). Do not seed production.
 
 ---
 
@@ -517,13 +517,10 @@ Owner has all. Admin has all except billing + SMTP. Dispatcher / office / field_
 
 ---
 
-## 25. Demo accounts
+## 25. Local seed accounts
 
-Password: `demo123`
+Password: `demo123` (development only)
 
-| Email | Portal | Plan / notes |
-|---|---|---|
-| `marcus@fieldpro.io` | Super Admin | Platform |
-| `sarah@mitchell-plumbing.com` | Office | Pro — calendar, dispatch, inventory, reports |
-| `jake@mitchell-plumbing.com` | Field | Mitchell Plumbing |
-| `emma@coolbreeze.com` | Office | Basic — reports only among gated modules |
+| Email | Portal |
+|---|---|
+| `platform@fieldpro.local` | Super Admin |

@@ -98,14 +98,31 @@ const AdminSettings = () => {
 
   const loadLogoPreview = async (fileId?: string | null) => {
     if (!fileId) {
-      setLogoSrc(null);
+      setLogoSrc((prev) => {
+        if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev);
+        return null;
+      });
       return;
     }
     try {
-      const signed = await api.files.signedUrl(fileId);
-      setLogoSrc(api.files.downloadUrl(fileId, signed.token));
+      const blob = await api.files.blob(fileId);
+      if (!blob) {
+        setLogoSrc((prev) => {
+          if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev);
+          return null;
+        });
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      setLogoSrc((prev) => {
+        if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev);
+        return url;
+      });
     } catch {
-      setLogoSrc(null);
+      setLogoSrc((prev) => {
+        if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev);
+        return null;
+      });
     }
   };
 
@@ -195,6 +212,11 @@ const AdminSettings = () => {
     }
     setUploadingLogo(true);
     try {
+      const localPreview = URL.createObjectURL(file);
+      setLogoSrc((prev) => {
+        if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev);
+        return localPreview;
+      });
       const uploaded = await api.files.upload(file);
       await api.company.update({ logoFileId: uploaded.id });
       setCompany((prev: any) => ({ ...prev, logoFileId: uploaded.id }));
@@ -213,7 +235,10 @@ const AdminSettings = () => {
     try {
       await api.company.update({ logoFileId: null });
       setCompany((prev: any) => ({ ...prev, logoFileId: null }));
-      setLogoSrc(null);
+      setLogoSrc((prev) => {
+        if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev);
+        return null;
+      });
       toast.success('Logo removed');
     } catch (err: any) {
       toast.error(err?.message || 'Could not remove logo');

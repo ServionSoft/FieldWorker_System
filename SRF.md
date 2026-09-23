@@ -105,7 +105,7 @@ Express API (TypeScript, port 4100)
 |---|---|
 | Client | Modern desktop browser (Chrome, Edge, Firefox, Safari) |
 | Runtime | Node.js 20+, PostgreSQL 14+ |
-| Local demo | Seeded companies; password `demo123` (development only) |
+| Local demo | Seed: `platform@fieldpro.local` / `demo123` (development only; never seed production) |
 
 ### 2.4 Design constraints
 

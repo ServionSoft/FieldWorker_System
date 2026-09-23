@@ -316,6 +316,14 @@ export const api = {
     },
     signedUrl: (id: string) => request<{ url: string; token: string }>(`/files/${id}/signed-url`, { method: 'POST' }),
     downloadUrl: (id: string, token: string) => `${BASE}/files/${id}/download?token=${token}`,
+    blob: async (id: string) => {
+      const token = getAccessToken();
+      const res = await fetch(`${BASE}/files/${id}/download`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) return null;
+      return res.blob();
+    },
   },
   agreements: {
     list: () => request<{ items: any[] }>('/agreements?pageSize=100').then((r) => r.items),

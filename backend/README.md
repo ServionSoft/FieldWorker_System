@@ -27,7 +27,7 @@ cp .env.example .env
 # edit .env — set DATABASE_URL / APP_DATABASE_URL passwords and secrets
 npm install
 npm run migrate   # creates DB, app role, schema, RLS
-npm run seed      # demo companies, users, sample CRM data
+npm run seed      # local only: plans + platform admin (wipes all tenants)
 npm run dev       # default http://localhost:4100
 ```
 
@@ -46,7 +46,7 @@ curl http://localhost:4100/health
 | `npm run build` | Compile TypeScript → `dist/` |
 | `npm start` | Run compiled `dist/index.js` |
 | `npm run migrate` | Apply schema / migrations |
-| `npm run seed` | Seed demo data (password: `demo123`) |
+| `npm run seed` | Local only: plans + platform admin (wipes tenants). Password: `demo123` |
 
 ## Environment
 
@@ -119,17 +119,17 @@ Also: `GET /health` (no auth).
 - RLS uses session GUCs such as `app.current_company_id` and `app.current_user_id`.
 - Effective permissions (role + member overrides) are loaded into the session for RBAC checks.
 
-## Demo accounts (after seed)
+## Local seed (development only)
 
-Password for all: **`demo123`**
+`npm run seed` **wipes all companies**. Do not run it on production.
+
+Password: **`demo123`**
 
 | Role | Email |
 |------|-------|
-| Super admin | `marcus@fieldpro.io` |
-| Mitchell Plumbing owner | `sarah@mitchell-plumbing.com` |
-| Mitchell field worker | `jake@mitchell-plumbing.com` |
+| Super admin | `platform@fieldpro.local` |
 
-Additional tenants: SparkVolt Electrical, CoolBreeze HVAC, and more (see `src/db/seed.ts`).
+Production tenants are created through signup / Super Admin, not seed.
 
 ## Optional integrations
 
