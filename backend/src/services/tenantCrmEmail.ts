@@ -54,7 +54,7 @@ export async function sendTenantCrmEmail(
     ? renderEmailTemplate(tpl.body, opts.vars)
     : (opts.fallbackBody || opts.vars.message || '');
   if (opts.attachments?.length && text && !/attached|attachment|pdf/i.test(text)) {
-    text = `${text.trim()}\n\nThe invoice PDF is attached.`;
+    text = `${text.trim()}\n\nThe PDF is attached.`;
   }
   const result = await sendTenantEmail(client, opts.companyId, {
     to: opts.to,

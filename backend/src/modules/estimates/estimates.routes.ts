@@ -7,6 +7,7 @@ import { notFound, badRequest, conflict } from '../../utils/errors.js';
 import { assertPlanLimits, notifyByPermission, parsePage, pageResult, nextNumber, formatAddress } from '../../utils/helpers.js';
 import { audit } from '../../utils/audit.js';
 import { customerEmailFor, sendTenantCrmEmail } from '../../services/tenantCrmEmail.js';
+import { buildEstimatePdf } from '../../services/invoice-pdf.js';
 
 export const estimatesRouter = Router();
 estimatesRouter.use(requireAuth, requireTenant, requireRole('admin'), requirePermission('estimates.read'));
@@ -261,6 +262,7 @@ estimatesRouter.post('/:id/status', requirePermission('estimates.write'), tenant
       const cust = await customerEmailFor(client, req.auth.companyId!, est.customerId);
       const company = await client.query(`SELECT name FROM companies WHERE id = $1`, [req.auth.companyId]);
       if (cust) {
+        const pdf = await buildEstimatePdf(client, req.auth.companyId!, est.id);
         await sendTenantCrmEmail(client, {
           companyId: req.auth.companyId!,
           type: 'estimate',
@@ -274,7 +276,8 @@ estimatesRouter.post('/:id/status', requirePermission('estimates.write'), tenant
             estimateNumber: est.estimateNumber,
           },
           fallbackSubject: `Estimate ${est.estimateNumber}`,
-          fallbackBody: `Dear ${cust.name},\n\nPlease review estimate ${est.estimateNumber}.`,
+          fallbackBody: `Dear ${cust.name},\n\nPlease review estimate ${est.estimateNumber}. The estimate PDF is attached.`,
+          attachments: pdf ? [pdf] : undefined,
         });
       }
     }

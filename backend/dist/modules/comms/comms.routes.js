@@ -6,7 +6,7 @@ import { tenantRoute } from '../../middleware/tenant.js';
 import { notFound, badRequest } from '../../utils/errors.js';
 import { sendTenantCrmEmail } from '../../services/tenantCrmEmail.js';
 import { TENANT_TEMPLATE_TYPES } from '../../services/email.js';
-import { buildInvoicePdf } from '../../services/invoice-pdf.js';
+import { buildInvoicePdf, buildEstimatePdf } from '../../services/invoice-pdf.js';
 import { requireTwilio, fromNumber, webhookBase, twilioConfigured } from '../../services/twilio.js';
 import { toE164 } from '../../utils/phone.js';
 import { parsePage, pageResult } from '../../utils/helpers.js';
@@ -225,9 +225,17 @@ commsRouter.post('/send-template', tenantRoute(async (req, res, client) => {
     }
     if (body.message)
         extra.message = body.message;
-    const attachments = body.invoiceId
-        ? [await buildInvoicePdf(client, companyId, body.invoiceId)].filter((a) => Boolean(a))
-        : undefined;
+    const attachments = [];
+    if (body.invoiceId) {
+        const pdf = await buildInvoicePdf(client, companyId, body.invoiceId);
+        if (pdf)
+            attachments.push(pdf);
+    }
+    if (body.estimateId) {
+        const pdf = await buildEstimatePdf(client, companyId, body.estimateId);
+        if (pdf)
+            attachments.push(pdf);
+    }
     const result = await sendTenantCrmEmail(client, {
         companyId,
         type,
@@ -243,7 +251,7 @@ commsRouter.post('/send-template', tenantRoute(async (req, res, client) => {
             phone: cust.rows[0].phone ?? '',
             ...extra,
         },
-        attachments,
+        attachments: attachments.length ? attachments : undefined,
     });
     if (!result.sent) {
         const detail = result.error === 'not_configured'
