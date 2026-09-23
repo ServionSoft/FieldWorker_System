@@ -7,12 +7,13 @@ import { badRequest, forbidden, notFound } from '../../utils/errors.js';
 import { encryptSecret } from '../../utils/crypto.js';
 import { sendTenantSmtpTest } from '../../services/email.js';
 import { isCompanyProfileComplete } from './onboarding.js';
+import { invoiceSettingsPatchSchema, parseInvoiceSettings } from './invoice-settings.js';
 import { pool } from '../../db/pool.js';
 export const companyRouter = Router();
 companyRouter.use(requireAuth, requireTenant, requireRole('admin'));
 companyRouter.get('/', tenantRoute(async (req, res, client) => {
     const { rows } = await client.query(`SELECT c.id, c.name, c.email, c.phone, c.address, c.status, c.plan_id, c.twilio_number,
-            c.timezone, c.default_tax_pct, c.website, c.invoice_footer, c.logo_file_id,
+            c.timezone, c.default_tax_pct, c.website, c.invoice_footer, c.logo_file_id, c.invoice_settings,
             c.trial_ends_at, c.stripe_customer_id, c.stripe_subscription_id, c.business_type, c.onboarding_completed_at,
             p.name AS plan_name
      FROM companies c JOIN subscription_plans p ON p.id = c.plan_id WHERE c.id = $1`, [req.auth.companyId]);
@@ -36,6 +37,7 @@ companyRouter.get('/', tenantRoute(async (req, res, client) => {
         website: c.website,
         invoiceFooter: c.invoice_footer,
         logoFileId: c.logo_file_id,
+        invoiceSettings: parseInvoiceSettings(c.invoice_settings),
         trialEndsAt: c.trial_ends_at ? c.trial_ends_at.toISOString() : null,
         businessType: c.business_type || null,
         onboardingRequired: !isCompanyProfileComplete({
@@ -67,20 +69,29 @@ companyRouter.patch('/', requirePermission('settings.company'), tenantRoute(asyn
         invoiceFooter: z.string().nullish(),
         logoFileId: z.string().uuid().nullable().optional(),
         businessType: z.enum(['plumbing', 'electrical', 'hvac', 'general']).nullable().optional(),
+        invoiceSettings: invoiceSettingsPatchSchema.optional(),
     }).parse(req.body);
     const str = (v) => (v == null ? null : String(v));
     const r = await client.query(`UPDATE companies SET
        name = coalesce($2, name), email = coalesce($3, email), phone = coalesce($4, phone), address = coalesce($5, address),
        twilio_number = coalesce($6, twilio_number), timezone = coalesce($7, timezone),
        default_tax_pct = coalesce($8, default_tax_pct), website = coalesce($9, website),
-       invoice_footer = coalesce($10, invoice_footer), logo_file_id = coalesce($11, logo_file_id),
-       business_type = CASE WHEN $12::text IS NULL THEN business_type ELSE $12 END
+       invoice_footer = coalesce($10, invoice_footer),
+       logo_file_id = CASE WHEN $11::boolean THEN $12::uuid ELSE logo_file_id END,
+       business_type = CASE WHEN $13::text IS NULL THEN business_type ELSE $13 END,
+       invoice_settings = CASE
+         WHEN $14::jsonb IS NULL THEN invoice_settings
+         ELSE COALESCE(invoice_settings, '{}'::jsonb) || $14::jsonb
+       END
      WHERE id = $1 RETURNING id, name, email, phone, address, timezone, business_type`, [
         req.auth.companyId,
         body.name ?? null, body.email ?? null, str(body.phone), str(body.address),
         str(body.twilioNumber), str(body.timezone), body.defaultTaxPct ?? null,
-        str(body.website), str(body.invoiceFooter), body.logoFileId === undefined ? null : body.logoFileId,
+        str(body.website), str(body.invoiceFooter),
+        body.logoFileId !== undefined,
+        body.logoFileId ?? null,
         body.businessType === undefined ? null : body.businessType,
+        body.invoiceSettings === undefined ? null : JSON.stringify(body.invoiceSettings),
     ]);
     if (!r.rowCount)
         throw notFound('Company');

@@ -1,19 +1,60 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAppStore } from '@/store/useAppStore';
 import { api } from '@/lib/api';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { FieldError, fieldInvalidProps } from '@/components/crm/FieldError';
 import { BillingSettings } from '@/pages/admin/BillingSettings';
 import { applyErrors, emailError, phoneError, requiredText, taxRateError, urlError } from '@/lib/formValidation';
+
+const DEFAULT_INVOICE_SETTINGS = {
+  showLogo: true,
+  showAddress: true,
+  showPhone: true,
+  showEmail: true,
+  showWebsite: true,
+  showCustomerAddress: true,
+  showDueDate: true,
+  showStatus: true,
+  showTax: true,
+  showFooter: true,
+  showBankDetails: false,
+  showNotes: true,
+  bankName: '',
+  bankAccountName: '',
+  bankAccountNumber: '',
+  bankRoutingNumber: '',
+  bankIban: '',
+  bankSwift: '',
+  paymentInstructions: '',
+};
+
+type InvoiceSettingsState = typeof DEFAULT_INVOICE_SETTINGS;
+
+const INVOICE_TOGGLES: { key: keyof InvoiceSettingsState; label: string }[] = [
+  { key: 'showLogo', label: 'Logo' },
+  { key: 'showAddress', label: 'Company address' },
+  { key: 'showPhone', label: 'Phone' },
+  { key: 'showEmail', label: 'Email' },
+  { key: 'showWebsite', label: 'Website' },
+  { key: 'showCustomerAddress', label: 'Customer address' },
+  { key: 'showDueDate', label: 'Due date / valid until' },
+  { key: 'showStatus', label: 'Status' },
+  { key: 'showTax', label: 'Tax line' },
+  { key: 'showFooter', label: 'Footer' },
+  { key: 'showBankDetails', label: 'Bank / payment details' },
+  { key: 'showNotes', label: 'Notes (estimates)' },
+];
 
 const ROLE_LABELS: Record<string, string> = {
   owner: 'Owner',
@@ -46,9 +87,27 @@ const AdminSettings = () => {
   const [inviteErrors, setInviteErrors] = useState<Record<string, string>>({});
   const [smtpErrors, setSmtpErrors] = useState<Record<string, string>>({});
   const [savingCompany, setSavingCompany] = useState(false);
+  const [savingInvoice, setSavingInvoice] = useState(false);
   const [savingSmtp, setSavingSmtp] = useState(false);
   const [testingSmtp, setTestingSmtp] = useState(false);
   const [inviting, setInviting] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoSrc, setLogoSrc] = useState<string | null>(null);
+  const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettingsState>(DEFAULT_INVOICE_SETTINGS);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const loadLogoPreview = async (fileId?: string | null) => {
+    if (!fileId) {
+      setLogoSrc(null);
+      return;
+    }
+    try {
+      const signed = await api.files.signedUrl(fileId);
+      setLogoSrc(api.files.downloadUrl(fileId, signed.token));
+    } catch {
+      setLogoSrc(null);
+    }
+  };
 
   const load = async () => {
     try {
@@ -62,6 +121,8 @@ const AdminSettings = () => {
         twilioNumber: c.twilioNumber ?? '',
         timezone: c.timezone ?? 'America/Chicago',
       });
+      setInvoiceSettings({ ...DEFAULT_INVOICE_SETTINGS, ...(c.invoiceSettings || {}) });
+      await loadLogoPreview(c.logoFileId);
       setSmtp({
         host: c.smtp?.host || '', port: c.smtp?.port || 587, user: c.smtp?.user || '', password: '',
         secure: c.smtp?.secure ?? true, fromName: c.smtp?.fromName || '', fromEmail: c.smtp?.fromEmail || '',
@@ -102,13 +163,63 @@ const AdminSettings = () => {
         timezone: company.timezone ?? '',
         defaultTaxPct: Number(company.defaultTaxPct || 0),
         website: company.website ?? '',
-        invoiceFooter: company.invoiceFooter ?? '',
         businessType: company.businessType ? company.businessType : undefined,
       });
       await hydrate();
       toast.success('Company profile saved');
     } catch (err: any) { toast.error(err?.message || 'Save failed'); }
     finally { setSavingCompany(false); }
+  };
+
+  const saveInvoiceSettings = async () => {
+    setSavingInvoice(true);
+    try {
+      await api.company.update({
+        invoiceFooter: company?.invoiceFooter ?? '',
+        invoiceSettings,
+      });
+      toast.success('Invoice settings saved');
+    } catch (err: any) { toast.error(err?.message || 'Save failed'); }
+    finally { setSavingInvoice(false); }
+  };
+
+  const uploadLogo = async (file?: File) => {
+    if (!file) return;
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      toast.error('Use a PNG or JPG logo');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Logo must be under 2 MB');
+      return;
+    }
+    setUploadingLogo(true);
+    try {
+      const uploaded = await api.files.upload(file);
+      await api.company.update({ logoFileId: uploaded.id });
+      setCompany((prev: any) => ({ ...prev, logoFileId: uploaded.id }));
+      await loadLogoPreview(uploaded.id);
+      toast.success('Logo uploaded');
+    } catch (err: any) {
+      toast.error(err?.message || 'Logo upload failed');
+    } finally {
+      setUploadingLogo(false);
+      if (logoInputRef.current) logoInputRef.current.value = '';
+    }
+  };
+
+  const removeLogo = async () => {
+    setUploadingLogo(true);
+    try {
+      await api.company.update({ logoFileId: null });
+      setCompany((prev: any) => ({ ...prev, logoFileId: null }));
+      setLogoSrc(null);
+      toast.success('Logo removed');
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not remove logo');
+    } finally {
+      setUploadingLogo(false);
+    }
   };
 
   const saveSmtp = async () => {
@@ -206,12 +317,42 @@ const AdminSettings = () => {
           {visibleTabs.map((t) => <TabsTrigger key={t.id} value={t.id}>{t.label}</TabsTrigger>)}
         </TabsList>
 
-        <TabsContent value="company" className="mt-4">
+        <TabsContent value="company" className="mt-4 space-y-4">
           <Card>
             <CardHeader><CardTitle className="text-lg">Company profile</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               {company && (
                 <>
+                  <div className="space-y-1">
+                    <Label>Logo</Label>
+                    <div className="flex items-center gap-3">
+                      <div className="h-16 w-16 rounded-lg border bg-muted flex items-center justify-center overflow-hidden shrink-0">
+                        {logoSrc
+                          ? <img src={logoSrc} alt="Company logo" className="h-full w-full object-contain" />
+                          : <span className="text-[10px] text-muted-foreground">No logo</span>}
+                      </div>
+                      <div className="space-y-2">
+                        <input
+                          ref={logoInputRef}
+                          type="file"
+                          accept="image/png,image/jpeg"
+                          className="hidden"
+                          onChange={(e) => { void uploadLogo(e.target.files?.[0]); }}
+                        />
+                        <div className="flex gap-2">
+                          <Button type="button" variant="outline" size="sm" disabled={uploadingLogo} onClick={() => logoInputRef.current?.click()}>
+                            {uploadingLogo ? 'Uploading…' : 'Upload'}
+                          </Button>
+                          {company.logoFileId && (
+                            <Button type="button" variant="ghost" size="sm" disabled={uploadingLogo} onClick={() => { void removeLogo(); }}>
+                              Remove
+                            </Button>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">PNG or JPG, up to 2 MB. Shown on invoices and estimates when enabled below.</p>
+                      </div>
+                    </div>
+                  </div>
                   <div className="grid sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label htmlFor="companyName">Name</Label>
@@ -258,10 +399,52 @@ const AdminSettings = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-1"><Label>Invoice footer</Label><Input value={company.invoiceFooter || ''} onChange={(e) => setCompany({ ...company, invoiceFooter: e.target.value })} /></div>
                   <Button onClick={saveCompany} disabled={savingCompany} className="gradient-primary text-primary-foreground">{savingCompany ? 'Saving…' : 'Save'}</Button>
                 </>
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Invoice settings</CardTitle>
+              <CardDescription>Choose what appears on invoice and estimate PDFs emailed to customers.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid sm:grid-cols-2 gap-x-8">
+                {INVOICE_TOGGLES.map((t) => (
+                  <label key={t.key} className="flex items-center justify-between gap-3 py-1.5 text-sm border-b">
+                    <span>{t.label}</span>
+                    <Switch
+                      checked={Boolean(invoiceSettings[t.key])}
+                      onCheckedChange={(v) => setInvoiceSettings({ ...invoiceSettings, [t.key]: v === true })}
+                    />
+                  </label>
+                ))}
+              </div>
+              <div className="space-y-3">
+                <p className="text-sm font-medium">Bank details</p>
+                <p className="text-xs text-muted-foreground">Shown on the PDF only when “Bank / payment details” is on.</p>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div className="space-y-1"><Label>Bank name</Label><Input value={invoiceSettings.bankName} onChange={(e) => setInvoiceSettings({ ...invoiceSettings, bankName: e.target.value })} /></div>
+                  <div className="space-y-1"><Label>Account name</Label><Input value={invoiceSettings.bankAccountName} onChange={(e) => setInvoiceSettings({ ...invoiceSettings, bankAccountName: e.target.value })} /></div>
+                  <div className="space-y-1"><Label>Account number</Label><Input value={invoiceSettings.bankAccountNumber} onChange={(e) => setInvoiceSettings({ ...invoiceSettings, bankAccountNumber: e.target.value })} /></div>
+                  <div className="space-y-1"><Label>Routing number</Label><Input value={invoiceSettings.bankRoutingNumber} onChange={(e) => setInvoiceSettings({ ...invoiceSettings, bankRoutingNumber: e.target.value })} /></div>
+                  <div className="space-y-1"><Label>IBAN</Label><Input value={invoiceSettings.bankIban} onChange={(e) => setInvoiceSettings({ ...invoiceSettings, bankIban: e.target.value })} /></div>
+                  <div className="space-y-1"><Label>SWIFT / BIC</Label><Input value={invoiceSettings.bankSwift} onChange={(e) => setInvoiceSettings({ ...invoiceSettings, bankSwift: e.target.value })} /></div>
+                </div>
+                <div className="space-y-1">
+                  <Label>Payment instructions</Label>
+                  <Textarea value={invoiceSettings.paymentInstructions} onChange={(e) => setInvoiceSettings({ ...invoiceSettings, paymentInstructions: e.target.value })} placeholder="e.g. Please pay within 14 days." />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label>Invoice footer</Label>
+                <Textarea value={company?.invoiceFooter || ''} onChange={(e) => setCompany({ ...company, invoiceFooter: e.target.value })} placeholder="Thank you for your business." />
+              </div>
+              <Button onClick={() => { void saveInvoiceSettings(); }} disabled={savingInvoice || !company} className="gradient-primary text-primary-foreground">
+                {savingInvoice ? 'Saving…' : 'Save invoice settings'}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
