@@ -6,6 +6,7 @@ import { tenantRoute } from '../../middleware/tenant.js';
 import { notFound, badRequest } from '../../utils/errors.js';
 import { sendTenantCrmEmail } from '../../services/tenantCrmEmail.js';
 import { TENANT_TEMPLATE_TYPES } from '../../services/email.js';
+import { buildInvoicePdf } from '../../services/invoice-pdf.js';
 import { requireTwilio, fromNumber, webhookBase, twilioConfigured } from '../../services/twilio.js';
 import { toE164 } from '../../utils/phone.js';
 import { parsePage, pageResult } from '../../utils/helpers.js';
@@ -158,6 +159,9 @@ commsRouter.post('/send-template', tenantRoute(async (req, res, client) => {
         customerId: z.string().uuid(),
         jobId: z.string().uuid().optional(),
         estimateId: z.string().uuid().optional(),
+        invoiceId: z.string().uuid().optional(),
+        followUpId: z.string().uuid().optional(),
+        message: z.string().optional(),
         toEmail: z.string().email().optional(),
     }).parse(req.body);
     const companyId = req.auth.companyId;
@@ -178,20 +182,68 @@ commsRouter.post('/send-template', tenantRoute(async (req, res, client) => {
         throw notFound('Customer email');
     const company = await client.query(`SELECT name, phone FROM companies WHERE id = $1`, [companyId]);
     const name = `${cust.rows[0].first_name ?? ''} ${cust.rows[0].last_name ?? ''}`.trim() || 'Customer';
+    const extra = {};
+    let jobId = body.jobId;
+    let estimateId = body.estimateId;
+    if (body.invoiceId) {
+        const inv = await client.query(`SELECT id, invoice_number, total, due_date, job_id, customer_id
+       FROM invoices WHERE company_id = $1 AND id = $2`, [companyId, body.invoiceId]);
+        if (!inv.rowCount || inv.rows[0].customer_id !== body.customerId)
+            throw notFound('Invoice');
+        extra.invoiceNumber = String(inv.rows[0].invoice_number ?? '');
+        extra.amount = Number(inv.rows[0].total || 0).toFixed(2);
+        extra.total = extra.amount;
+        extra.dueDate = inv.rows[0].due_date ? new Date(inv.rows[0].due_date).toISOString().slice(0, 10) : '';
+        jobId = jobId || inv.rows[0].job_id || undefined;
+    }
+    if (jobId) {
+        const job = await client.query(`SELECT id, title, scheduled_date, scheduled_time, customer_id
+       FROM jobs WHERE company_id = $1 AND id = $2`, [companyId, jobId]);
+        if (!job.rowCount || job.rows[0].customer_id !== body.customerId)
+            throw notFound('Job');
+        extra.jobTitle = String(job.rows[0].title ?? '');
+        extra.scheduledDate = job.rows[0].scheduled_date
+            ? new Date(job.rows[0].scheduled_date).toISOString().slice(0, 10)
+            : '';
+        extra.scheduledTime = job.rows[0].scheduled_time ? String(job.rows[0].scheduled_time).slice(0, 5) : '';
+    }
+    if (estimateId) {
+        const est = await client.query(`SELECT id, estimate_number, customer_id FROM estimates WHERE company_id = $1 AND id = $2`, [companyId, estimateId]);
+        if (!est.rowCount || est.rows[0].customer_id !== body.customerId)
+            throw notFound('Estimate');
+        extra.estimateNumber = String(est.rows[0].estimate_number ?? '');
+    }
+    if (body.followUpId) {
+        const fu = await client.query(`SELECT id, title, due_date, job_id, estimate_id, customer_id
+       FROM follow_ups WHERE company_id = $1 AND id = $2`, [companyId, body.followUpId]);
+        if (!fu.rowCount || fu.rows[0].customer_id !== body.customerId)
+            throw notFound('Follow-up');
+        extra.title = String(fu.rows[0].title ?? '');
+        extra.dueDate = fu.rows[0].due_date ? new Date(fu.rows[0].due_date).toISOString().slice(0, 10) : '';
+        jobId = jobId || fu.rows[0].job_id || undefined;
+        estimateId = estimateId || fu.rows[0].estimate_id || undefined;
+    }
+    if (body.message)
+        extra.message = body.message;
+    const attachments = body.invoiceId
+        ? [await buildInvoicePdf(client, companyId, body.invoiceId)].filter((a) => Boolean(a))
+        : undefined;
     const result = await sendTenantCrmEmail(client, {
         companyId,
         type,
         to,
         customerId: body.customerId,
-        jobId: body.jobId,
-        estimateId: body.estimateId,
+        jobId,
+        estimateId,
         userId: req.auth.userId,
         template: { subject: tpl.rows[0].subject, body: tpl.rows[0].body },
         vars: {
             customerName: name,
             companyName: company.rows[0]?.name ?? '',
             phone: cust.rows[0].phone ?? '',
+            ...extra,
         },
+        attachments,
     });
     if (!result.sent) {
         const detail = result.error === 'not_configured'

@@ -6,6 +6,7 @@ import { tenantRoute } from '../../middleware/tenant.js';
 import { notFound, badRequest } from '../../utils/errors.js';
 import { sendTenantCrmEmail } from '../../services/tenantCrmEmail.js';
 import { TENANT_TEMPLATE_TYPES } from '../../services/email.js';
+import { buildInvoicePdf } from '../../services/invoice-pdf.js';
 import { requireTwilio, fromNumber, webhookBase, twilioConfigured } from '../../services/twilio.js';
 import { toE164 } from '../../utils/phone.js';
 import { parsePage, pageResult } from '../../utils/helpers.js';
@@ -254,6 +255,10 @@ commsRouter.post('/send-template', tenantRoute(async (req, res, client) => {
   }
   if (body.message) extra.message = body.message;
 
+  const attachments = body.invoiceId
+    ? [await buildInvoicePdf(client, companyId, body.invoiceId)].filter((a): a is NonNullable<typeof a> => Boolean(a))
+    : undefined;
+
   const result = await sendTenantCrmEmail(client, {
     companyId,
     type,
@@ -269,6 +274,7 @@ commsRouter.post('/send-template', tenantRoute(async (req, res, client) => {
       phone: cust.rows[0].phone ?? '',
       ...extra,
     },
+    attachments,
   });
   if (!result.sent) {
     const detail = result.error === 'not_configured'

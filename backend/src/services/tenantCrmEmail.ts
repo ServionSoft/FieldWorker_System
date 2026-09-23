@@ -4,6 +4,7 @@ import {
   renderEmailTemplate,
   sendTenantEmail,
   type TenantTemplateType,
+  type EmailAttachment,
 } from './email.js';
 
 export async function customerEmailFor(
@@ -42,16 +43,25 @@ export async function sendTenantCrmEmail(
     fallbackSubject?: string;
     fallbackBody?: string;
     template?: { subject: string; body: string };
+    attachments?: EmailAttachment[];
   },
 ): Promise<{ sent: boolean; error?: string; communication: Record<string, unknown> }> {
   const tpl = opts.template ?? await loadTenantTemplate(client, opts.companyId, opts.type);
   const subject = tpl
     ? renderEmailTemplate(tpl.subject, opts.vars)
     : (opts.fallbackSubject || opts.vars.title || 'Message from your service company');
-  const text = tpl
+  let text = tpl
     ? renderEmailTemplate(tpl.body, opts.vars)
     : (opts.fallbackBody || opts.vars.message || '');
-  const result = await sendTenantEmail(client, opts.companyId, { to: opts.to, subject, text });
+  if (opts.attachments?.length && text && !/attached|attachment|pdf/i.test(text)) {
+    text = `${text.trim()}\n\nThe invoice PDF is attached.`;
+  }
+  const result = await sendTenantEmail(client, opts.companyId, {
+    to: opts.to,
+    subject,
+    text,
+    attachments: opts.attachments,
+  });
   const sent = result.ok;
   const created = await client.query(
     `INSERT INTO communications (

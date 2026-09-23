@@ -167,7 +167,7 @@ export function recentEmailReceipts(limit = 80) {
     }
     return [...byKey.values()].sort((a, b) => a.at.localeCompare(b.at)).slice(-limit);
 }
-async function deliver(channel, cfg, to, subject, text, html) {
+async function deliver(channel, cfg, to, subject, text, html, attachments) {
     const base = {
         at: new Date().toISOString(),
         channel,
@@ -194,6 +194,11 @@ async function deliver(channel, cfg, to, subject, text, html) {
             subject,
             text,
             html: html ?? `<p>${text.replace(/\n/g, '<br/>')}</p>`,
+            attachments: attachments?.map((a) => ({
+                filename: a.filename,
+                content: a.content,
+                contentType: a.contentType || 'application/octet-stream',
+            })),
         });
         const receipt = {
             ...base,
@@ -393,7 +398,7 @@ export async function sendTenantEmail(client, companyId, opts) {
         });
         return { ok: false, error: 'not_configured' };
     }
-    const result = await deliver('tenant', cfg, opts.to, opts.subject, opts.text, opts.html);
+    const result = await deliver('tenant', cfg, opts.to, opts.subject, opts.text, opts.html, opts.attachments);
     return result.ok ? { ok: true } : { ok: false, error: result.error };
 }
 /** @deprecated Use sendPlatformEmail or sendTenantEmail. No cross-channel fallback. */

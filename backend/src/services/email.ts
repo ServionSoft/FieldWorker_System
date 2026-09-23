@@ -203,7 +203,21 @@ export function recentEmailReceipts(limit = 80) {
   return [...byKey.values()].sort((a, b) => a.at.localeCompare(b.at)).slice(-limit);
 }
 
-async function deliver(channel: EmailChannel, cfg: SmtpConfig, to: string, subject: string, text: string, html?: string): Promise<{ ok: true; receipt: EmailReceipt } | { ok: false; error: string; receipt: EmailReceipt }> {
+export type EmailAttachment = {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+};
+
+async function deliver(
+  channel: EmailChannel,
+  cfg: SmtpConfig,
+  to: string,
+  subject: string,
+  text: string,
+  html?: string,
+  attachments?: EmailAttachment[],
+): Promise<{ ok: true; receipt: EmailReceipt } | { ok: false; error: string; receipt: EmailReceipt }> {
   const base: EmailReceipt = {
     at: new Date().toISOString(),
     channel,
@@ -230,6 +244,11 @@ async function deliver(channel: EmailChannel, cfg: SmtpConfig, to: string, subje
       subject,
       text,
       html: html ?? `<p>${text.replace(/\n/g, '<br/>')}</p>`,
+      attachments: attachments?.map((a) => ({
+        filename: a.filename,
+        content: a.content,
+        contentType: a.contentType || 'application/octet-stream',
+      })),
     });
     const receipt: EmailReceipt = {
       ...base,
@@ -435,6 +454,7 @@ export type SendTenantOpts = {
   subject: string;
   text: string;
   html?: string;
+  attachments?: EmailAttachment[];
 };
 
 /** Tenant-to-customer CRM mail. Always that company's SMTP. Sender cannot be overridden. */
@@ -462,7 +482,7 @@ export async function sendTenantEmail(
     });
     return { ok: false as const, error: 'not_configured' };
   }
-  const result = await deliver('tenant', cfg, opts.to, opts.subject, opts.text, opts.html);
+  const result = await deliver('tenant', cfg, opts.to, opts.subject, opts.text, opts.html, opts.attachments);
   return result.ok ? { ok: true as const } : { ok: false as const, error: result.error };
 }
 

@@ -8,6 +8,7 @@ import { notFound, badRequest } from '../../utils/errors.js';
 import { nextNumber, parsePage, pageResult } from '../../utils/helpers.js';
 import { audit } from '../../utils/audit.js';
 import { customerEmailFor, sendTenantCrmEmail } from '../../services/tenantCrmEmail.js';
+import { buildInvoicePdf } from '../../services/invoice-pdf.js';
 
 export const invoicesRouter = Router();
 invoicesRouter.use(requireAuth, requireTenant, requireRole('admin'), requirePermission('invoices.read'));
@@ -128,6 +129,7 @@ invoicesRouter.patch('/:id', requirePermission('invoices.write'), tenantRoute(as
       const cust = await customerEmailFor(client, companyId, inv.customerId);
       const company = await client.query(`SELECT name FROM companies WHERE id = $1`, [companyId]);
       if (cust) {
+        const pdf = await buildInvoicePdf(client, companyId, req.params.id);
         await sendTenantCrmEmail(client, {
           companyId,
           type: 'invoice',
@@ -143,7 +145,8 @@ invoicesRouter.patch('/:id', requirePermission('invoices.write'), tenantRoute(as
             dueDate: inv.dueDate ?? '',
           },
           fallbackSubject: `Invoice ${inv.invoiceNumber}`,
-          fallbackBody: `Dear ${cust.name},\n\nPlease find invoice ${inv.invoiceNumber} for $${inv.total.toFixed(2)}.`,
+          fallbackBody: `Dear ${cust.name},\n\nPlease find invoice ${inv.invoiceNumber} for $${inv.total.toFixed(2)}. The invoice PDF is attached.`,
+          attachments: pdf ? [pdf] : undefined,
         });
       }
     }
