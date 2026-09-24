@@ -60,7 +60,7 @@ const formatTime = (iso: string) => {
 
 const CommunicationsThread: React.FC<Props> = ({ toNumber, filter, compact, title = 'Communications' }) => {
   const qc = useQueryClient();
-  const { communications, currentUser, company, markCommunicationRead, customers, jobs, estimates, invoices } = useFieldPro();
+  const { communications, company, markCommunicationRead, customers, jobs, estimates, invoices } = useFieldPro();
   const [showCall, setShowCall] = useState(false);
   const [showSms, setShowSms] = useState(false);
   const [showEmail, setShowEmail] = useState(false);
@@ -73,7 +73,6 @@ const CommunicationsThread: React.FC<Props> = ({ toNumber, filter, compact, titl
   const [attachInvoiceId, setAttachInvoiceId] = useState('');
   const [attachEstimateId, setAttachEstimateId] = useState('');
   const [callNotes, setCallNotes] = useState('');
-  const [callbackNumber, setCallbackNumber] = useState(currentUser?.phone || '');
   const [busy, setBusy] = useState(false);
   const [typeFilter, setTypeFilter] = useState<'all' | CommunicationType>('all');
 
@@ -139,26 +138,25 @@ const CommunicationsThread: React.FC<Props> = ({ toNumber, filter, compact, titl
   const unreadCount = thread.filter(c => !c.read).length;
 
   const handleLogCall = async () => {
-    if (!callbackNumber.trim()) {
-      toast.error('Enter the phone Twilio should ring first (your phone)');
-      return;
-    }
     setBusy(true);
     try {
-      await api.communications.call({
-        to: toNumber,
-        callbackNumber,
-        notes: callNotes || undefined,
+      await api.communications.create({
+        type: 'call',
+        direction: 'outbound',
+        status: 'completed',
+        fromNumber: companyLine,
+        toNumber,
         customerId: resolveCustomerId(),
         jobId: filter.jobId,
         estimateId: filter.estimateId,
+        body: callNotes.trim() || undefined,
       });
       await qc.invalidateQueries({ queryKey: ['communications'] });
-      toast.success('Calling your phone, then connecting the customer…');
+      toast.success('Call logged');
       setShowCall(false);
       setCallNotes('');
     } catch (err: any) {
-      toast.error(err?.message || 'Call failed. Check Twilio settings.');
+      toast.error(err?.message || 'Could not log call');
     } finally {
       setBusy(false);
     }
@@ -379,29 +377,23 @@ const CommunicationsThread: React.FC<Props> = ({ toNumber, filter, compact, titl
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Phone className="w-4 h-4" /> Place Call
+              <Phone className="w-4 h-4" /> Call
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-lg bg-muted/50 p-4 text-center">
-              <p className="text-xs text-muted-foreground">Calling</p>
+              <p className="text-xs text-muted-foreground">Customer</p>
               <p className="text-2xl font-heading font-bold mt-1">{toNumber}</p>
-              <p className="text-xs text-muted-foreground mt-2">From {companyLine}</p>
-            </div>
-            <div>
-              <Label>Your phone (Twilio rings you first)</Label>
-              <Input value={callbackNumber} onChange={e => setCallbackNumber(e.target.value)} placeholder="+1…" />
             </div>
             <div>
               <Label>Call notes</Label>
               <Textarea rows={3} value={callNotes} onChange={e => setCallNotes(e.target.value)} placeholder="Optional notes…" />
             </div>
-            <p className="text-xs text-muted-foreground">Answer the incoming call, then Twilio connects the customer.</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCall(false)}>Cancel</Button>
             <Button onClick={handleLogCall} disabled={busy} className="gap-2 gradient-primary text-primary-foreground">
-              <Phone className="w-4 h-4" /> {busy ? 'Calling…' : 'Call via Twilio'}
+              <Phone className="w-4 h-4" /> {busy ? 'Saving…' : 'Call'}
             </Button>
           </DialogFooter>
         </DialogContent>

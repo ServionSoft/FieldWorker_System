@@ -16,8 +16,8 @@ import { GlobalSearch } from '@/components/crm/GlobalSearch';
 
 const navItems = [
   { label: 'Dashboard', path: '/admin', icon: LayoutDashboard, perm: null as string | null, feature: null as string | null },
-  { label: 'Jobs', path: '/admin/jobs', icon: Briefcase, perm: 'jobs.read', feature: null },
   { label: 'Estimates', path: '/admin/estimates', icon: Calculator, perm: 'estimates.read', feature: null },
+  { label: 'Jobs', path: '/admin/jobs', icon: Briefcase, perm: 'jobs.read', feature: null },
   { label: 'Calendar', path: '/admin/calendar', icon: CalendarDays, perm: 'dispatch.access', feature: 'calendar' },
   { label: 'Dispatch', path: '/admin/dispatch', icon: LayoutGrid, perm: 'dispatch.access', feature: 'dispatch' },
   { label: 'Customers', path: '/admin/customers', icon: UserCheck, perm: 'customers.read', feature: null },
