@@ -149,6 +149,13 @@ jobInvoiceRouter.use(requireAuth, requireTenant, requireRole('admin'), requirePe
 jobInvoiceRouter.post('/', tenantRoute(async (req, res, client) => {
     const companyId = req.auth.companyId;
     const jobId = req.params.id;
+    const body = z.object({
+        items: z.array(z.object({
+            description: z.string().trim().min(1).max(300),
+            quantity: z.coerce.number().positive(),
+            unitPrice: z.coerce.number().min(0),
+        })).min(1).optional(),
+    }).parse(req.body ?? {});
     const job = await client.query(`SELECT * FROM jobs WHERE company_id = $1 AND id = $2`, [companyId, jobId]);
     if (!job.rowCount)
         throw notFound('Job');
@@ -157,17 +164,34 @@ jobInvoiceRouter.post('/', tenantRoute(async (req, res, client) => {
         res.json(await mapInvoice(client, companyId, j.invoice_id));
         return;
     }
-    const lines = await client.query(`SELECT * FROM job_line_items WHERE job_id = $1`, [jobId]);
-    if (!lines.rowCount)
-        throw badRequest('No line items on this job');
-    const subtotal = lines.rows.reduce((s, r) => s + Number(r.total), 0);
+    let lines;
+    if (body.items?.length) {
+        lines = body.items.map((li) => ({
+            description: li.description,
+            quantity: li.quantity,
+            unit_price: li.unitPrice,
+            total: +(li.quantity * li.unitPrice).toFixed(2),
+        }));
+    }
+    else {
+        const existing = await client.query(`SELECT * FROM job_line_items WHERE job_id = $1`, [jobId]);
+        if (!existing.rowCount)
+            throw badRequest('Add at least one line item');
+        lines = existing.rows.map((r) => ({
+            description: r.description,
+            quantity: Number(r.quantity),
+            unit_price: Number(r.unit_price),
+            total: Number(r.total),
+        }));
+    }
+    const subtotal = lines.reduce((s, r) => s + Number(r.total), 0);
     const tax = +(subtotal * (Number(j.tax_rate) / 100)).toFixed(2);
     const number = await nextNumber(client, companyId, 'invoice');
     const due = new Date();
     due.setDate(due.getDate() + 30);
     const inv = await client.query(`INSERT INTO invoices (company_id, customer_id, job_id, invoice_number, status, subtotal, tax, total, due_date, created_by)
      VALUES ($1,$2,$3,$4,'draft',$5,$6,$7,$8,$9) RETURNING id`, [companyId, j.customer_id, jobId, number, subtotal, tax, subtotal + tax, due.toISOString().slice(0, 10), req.auth.userId]);
-    for (const li of lines.rows) {
+    for (const li of lines) {
         await client.query(`INSERT INTO invoice_line_items (company_id, invoice_id, description, quantity, unit_price, total)
        VALUES ($1,$2,$3,$4,$5,$6)`, [companyId, inv.rows[0].id, li.description, li.quantity, li.unit_price, li.total]);
     }

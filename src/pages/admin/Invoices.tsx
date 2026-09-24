@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Eye, Send, DollarSign, Search } from 'lucide-react';
+import { Plus, Eye, Send, DollarSign, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Invoice } from '@/store/types';
 import { ListPager } from '@/components/crm/ListPager';
@@ -27,20 +27,21 @@ const statusColors: Record<string, string> = { draft: 'tint-slate', sent: 'tint-
 const AdminInvoices = () => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { currentUser, invoices, updateInvoice, jobs, generateInvoiceFromJob } = useFieldPro();
+  const { currentUser, invoices, updateInvoice, jobs, inventory, generateInvoiceFromJob } = useFieldPro();
   const companyId = useAppStore((s) => s.company?.id);
   const { track } = useRecentlyViewed(companyId);
   const companyInvoices = invoices.filter(i => i.companyId === currentUser?.companyId);
-  const billableJobs = jobs.filter(j =>
-    !j.invoiceId
-    && j.status !== 'cancelled'
-    && j.billingType !== 'no_charge'
-    && (j.lineItems?.length ?? 0) > 0,
-  );
+  const invoiceJobs = jobs.filter(j => j.status !== 'cancelled' && j.billingType !== 'no_charge');
   const [showDetail, setShowDetail] = useState<Invoice | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [createStep, setCreateStep] = useState<'job' | 'items'>('job');
   const [jobId, setJobId] = useState('');
   const [creating, setCreating] = useState(false);
+  const [invSearch, setInvSearch] = useState('');
+  const [laborDesc, setLaborDesc] = useState('Labor');
+  const [laborQty, setLaborQty] = useState('1');
+  const [laborRate, setLaborRate] = useState('');
+  const [draftItems, setDraftItems] = useState<{ description: string; quantity: number; unitPrice: number }[]>([]);
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -58,7 +59,7 @@ const AdminInvoices = () => {
   const rows = (listQ.data?.items ?? []) as Invoice[];
   const total = listQ.data?.total ?? 0;
   const filtersOn = search || statusFilter !== 'all';
-  useUnsavedGuard(showCreate && !!jobId);
+  useUnsavedGuard(showCreate && (createStep === 'items' || !!jobId));
 
   useEffect(() => {
     const id = params.get('id');
@@ -76,10 +77,58 @@ const AdminInvoices = () => {
     track({ kind: 'invoice', id: showDetail.id, label: showDetail.invoiceNumber, href: `/admin/invoices?id=${showDetail.id}` });
   }, [showDetail, track]);
 
+  const selectedJob = jobs.find(j => j.id === jobId);
+  const taxRate = Number(selectedJob?.taxRate ?? 0);
+  const draftSubtotal = draftItems.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const draftTax = +(draftSubtotal * (taxRate / 100)).toFixed(2);
+  const catalog = inventory.filter((i) =>
+    !invSearch.trim()
+    || i.name.toLowerCase().includes(invSearch.toLowerCase())
+    || i.sku.toLowerCase().includes(invSearch.toLowerCase()),
+  );
+
+  const resetCreate = () => {
+    setShowCreate(false);
+    setCreateStep('job');
+    setJobId('');
+    setDraftItems([]);
+    setInvSearch('');
+    setLaborDesc('Labor');
+    setLaborQty('1');
+    setLaborRate('');
+  };
+
   const handleAction = (id: string, status: string) => {
     updateInvoice(id, { status: status as Invoice['status'] });
     toast.success(`Invoice marked as ${status}`);
     if (showDetail) setShowDetail({ ...showDetail, status: status as Invoice['status'] });
+  };
+
+  const addLaborLine = () => {
+    const description = laborDesc.trim() || 'Labor';
+    const quantity = Number(laborQty);
+    const unitPrice = Number(laborRate);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      toast.error('Enter labor hours / quantity');
+      return;
+    }
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+      toast.error('Enter labor rate');
+      return;
+    }
+    setDraftItems((prev) => [...prev, { description, quantity, unitPrice }]);
+    setLaborQty('1');
+    setLaborRate('');
+  };
+
+  const addInventoryLine = (item: { id: string; name: string; unitPrice: number }) => {
+    setDraftItems((prev) => {
+      const existing = prev.find((l) => l.description === item.name);
+      if (existing) {
+        return prev.map((l) => l.description === item.name ? { ...l, quantity: l.quantity + 1 } : l);
+      }
+      return [...prev, { description: item.name, quantity: 1, unitPrice: Number(item.unitPrice) || 0 }];
+    });
   };
 
   const handleCreate = async () => {
@@ -87,13 +136,31 @@ const AdminInvoices = () => {
       toast.error('Select a job to invoice');
       return;
     }
+    if (createStep === 'job') {
+      const job = jobs.find(j => j.id === jobId);
+      if (job?.invoiceId) {
+        toast.error('This job already has an invoice');
+        return;
+      }
+      const existing = (job?.lineItems ?? []).map((li) => ({
+        description: li.description,
+        quantity: li.quantity,
+        unitPrice: li.unitPrice,
+      }));
+      setDraftItems(existing);
+      setCreateStep('items');
+      return;
+    }
+    if (!draftItems.length) {
+      toast.error('Add labor or at least one line item');
+      return;
+    }
     setCreating(true);
     try {
-      const id = await generateInvoiceFromJob(jobId);
+      const id = await generateInvoiceFromJob(jobId, draftItems);
       const created = await api.invoices.get(id);
       toast.success(`Invoice ${created.invoiceNumber} created`);
-      setShowCreate(false);
-      setJobId('');
+      resetCreate();
       setShowDetail(created);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Could not create invoice');
@@ -172,7 +239,7 @@ const AdminInvoices = () => {
             {rows.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-12 text-muted-foreground text-sm">
-                  {listQ.isLoading ? 'Loading…' : filtersOn ? 'No invoices match these filters.' : 'No invoices yet. Create one from a completed job with line items.'}
+                  {listQ.isLoading ? 'Loading…' : filtersOn ? 'No invoices match these filters.' : 'No invoices yet. Create one from a job and add inventory line items.'}
                 </TableCell>
               </TableRow>
             )}
@@ -181,43 +248,149 @@ const AdminInvoices = () => {
         <ListPager page={page} pageSize={prefs.pageSize} total={total} onPage={setPage} onPageSize={prefs.setPageSize} />
       </CardContent></Card>
       <Dialog open={showCreate} onOpenChange={(open) => {
-        if (!open && !confirmDiscard(!!jobId)) return;
-        setShowCreate(open);
-        if (!open) setJobId('');
+        if (!open && !confirmDiscard(createStep === 'items' || !!jobId)) return;
+        if (!open) resetCreate();
+        else setShowCreate(true);
       }}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Create Invoice</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <Label>Job</Label>
-              {billableJobs.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No billable jobs with line items. Add line items on a job, then create an invoice from here or the job page.
-                </p>
-              ) : (
-                <Select value={jobId} onValueChange={setJobId}>
-                  <SelectTrigger><SelectValue placeholder="Select a job" /></SelectTrigger>
-                  <SelectContent>
-                    {billableJobs.map(j => {
-                      const total = (j.lineItems ?? []).reduce((s, i) => s + i.total, 0);
-                      return (
-                        <SelectItem key={j.id} value={j.id}>
-                          {j.title} — {j.customerName} (${total.toFixed(2)})
+        <DialogContent className={createStep === 'items' ? 'max-w-2xl' : undefined}>
+          <DialogHeader>
+            <DialogTitle>{createStep === 'job' ? 'Create Invoice' : 'Add line items'}</DialogTitle>
+          </DialogHeader>
+          {createStep === 'job' ? (
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label>Job</Label>
+                {invoiceJobs.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No jobs available to invoice.</p>
+                ) : (
+                  <Select value={jobId} onValueChange={setJobId}>
+                    <SelectTrigger><SelectValue placeholder="Select a job" /></SelectTrigger>
+                    <SelectContent>
+                      {invoiceJobs.map(j => (
+                        <SelectItem key={j.id} value={j.id} disabled={Boolean(j.invoiceId)}>
+                          {j.title} — {j.customerName}{j.invoiceId ? ' (invoiced)' : ''}
                         </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              {invoiceJobs.length === 0 && (
+                <Button variant="outline" onClick={() => navigate('/admin/jobs')}>Go to Jobs</Button>
               )}
             </div>
-            {billableJobs.length === 0 && (
-              <Button variant="outline" onClick={() => navigate('/admin/jobs')}>Go to Jobs</Button>
-            )}
-          </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {selectedJob?.title} — {selectedJob?.customerName}. Inventory is optional — you can add labor only.
+              </p>
+              <div className="rounded-lg border p-3 space-y-2">
+                <Label>Labor</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_5rem_6rem_auto] gap-2">
+                  <Input value={laborDesc} onChange={(e) => setLaborDesc(e.target.value)} placeholder="Labor" />
+                  <Input type="number" min={0} step="0.25" value={laborQty} onChange={(e) => setLaborQty(e.target.value)} placeholder="Hours" />
+                  <Input type="number" min={0} step="0.01" value={laborRate} onChange={(e) => setLaborRate(e.target.value)} placeholder="Rate $" />
+                  <Button type="button" variant="outline" onClick={addLaborLine}>Add labor</Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Inventory</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input placeholder="Search inventory..." value={invSearch} onChange={(e) => setInvSearch(e.target.value)} className="pl-10 h-9" />
+                </div>
+                <div className="max-h-40 overflow-y-auto border rounded-lg divide-y">
+                  {catalog.length === 0 ? (
+                    <p className="text-sm text-muted-foreground p-3">No inventory items. Add stock on the Inventory page.</p>
+                  ) : catalog.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{item.name}</p>
+                        <p className="text-xs text-muted-foreground">{item.sku} · ${Number(item.unitPrice).toFixed(2)} · stock {item.quantity}</p>
+                      </div>
+                      <Button type="button" size="sm" variant="outline" className="h-7 shrink-0" onClick={() => addInventoryLine(item)}>Add</Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Line items</Label>
+                {draftItems.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Add labor and/or inventory items.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Description</TableHead>
+                        <TableHead className="w-20">Qty</TableHead>
+                        <TableHead className="w-24">Price</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                        <TableHead className="w-10"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {draftItems.map((li, idx) => (
+                        <TableRow key={`${li.description}-${idx}`}>
+                          <TableCell className="text-sm">{li.description}</TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min={0}
+                              step="0.25"
+                              className="h-8 w-16"
+                              value={li.quantity}
+                              onChange={(e) => {
+                                const quantity = Math.max(0.01, Number(e.target.value) || 1);
+                                setDraftItems((prev) => prev.map((row, i) => i === idx ? { ...row, quantity } : row));
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              className="h-8 w-20"
+                              value={li.unitPrice}
+                              onChange={(e) => {
+                                const unitPrice = Math.max(0, Number(e.target.value) || 0);
+                                setDraftItems((prev) => prev.map((row, i) => i === idx ? { ...row, unitPrice } : row));
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right text-sm">${(li.quantity * li.unitPrice).toFixed(2)}</TableCell>
+                          <TableCell>
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDraftItems((prev) => prev.filter((_, i) => i !== idx))}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+                {draftItems.length > 0 && (
+                  <div className="text-sm text-right space-y-0.5">
+                    <p>Subtotal: ${draftSubtotal.toFixed(2)}</p>
+                    <p>Tax ({taxRate}%): ${draftTax.toFixed(2)}</p>
+                    <p className="font-medium">Total: ${(draftSubtotal + draftTax).toFixed(2)}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={creating || !jobId} className="gradient-primary text-primary-foreground">
-              {creating ? 'Creating…' : 'Create Invoice'}
+            {createStep === 'items' ? (
+              <Button variant="outline" onClick={() => setCreateStep('job')}>Back</Button>
+            ) : (
+              <Button variant="outline" onClick={resetCreate}>Cancel</Button>
+            )}
+            <Button
+              onClick={handleCreate}
+              disabled={creating || !jobId || (createStep === 'items' && draftItems.length === 0)}
+              className="gradient-primary text-primary-foreground"
+            >
+              {creating ? 'Creating…' : createStep === 'job' ? 'Continue' : 'Create Invoice'}
             </Button>
           </DialogFooter>
         </DialogContent>

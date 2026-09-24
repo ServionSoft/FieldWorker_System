@@ -252,7 +252,8 @@ export const api = {
       request(`/jobs/${id}/notes`, { method: 'POST', body: JSON.stringify({ body }) }),
     setLineItems: (id: string, items: unknown[]) =>
       request(`/jobs/${id}/line-items`, { method: 'PUT', body: JSON.stringify({ items }) }),
-    generateInvoice: (id: string) => request<any>(`/jobs/${id}/invoice`, { method: 'POST' }),
+    generateInvoice: (id: string, body?: unknown) =>
+      request<any>(`/jobs/${id}/invoice`, { method: 'POST', body: JSON.stringify(body ?? {}) }),
     addImage: (id: string, fileId: string) =>
       request(`/jobs/${id}/images`, { method: 'POST', body: JSON.stringify({ fileId }) }),
   },

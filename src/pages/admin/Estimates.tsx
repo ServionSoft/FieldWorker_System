@@ -39,7 +39,7 @@ const SOURCES = ['Website', 'Google', 'Referral', 'Yelp', 'Facebook', 'Repeat Cu
 const AdminEstimates = () => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { currentUser, customers, workers, addEstimate, deleteEstimate } = useFieldPro();
+  const { currentUser, customers, workers, inventory, addEstimate, deleteEstimate } = useFieldPro();
   const companyCustomers = customers.filter(c => c.companyId === currentUser?.companyId);
   const companyWorkers = workers.filter(w => w.companyId === currentUser?.companyId);
   const prefs = useTablePrefs('estimates', { customer: true, category: true, status: true, total: true, valid: true });
@@ -61,7 +61,7 @@ const AdminEstimates = () => {
     arrivalStart: '', arrivalEnd: '', estimatedDuration: '1',
     assignedWorkerIds: [] as string[], notesForTechs: '',
     notes: '', validUntil: '', taxRate: 7,
-    items: [{ description: '', quantity: 1, unitPrice: 0, total: 0 }] as EstimateLineItem[],
+    items: [{ description: '', quantity: 1, unitPrice: 0, total: 0, inventoryId: '' }] as (EstimateLineItem & { inventoryId?: string })[],
   };
   const [form, setForm] = useState(initialForm);
   useEffect(() => {
@@ -111,7 +111,27 @@ const AdminEstimates = () => {
     setForm({ ...form, items });
   };
 
-  const addLineItem = () => setForm({ ...form, items: [...form.items, { description: '', quantity: 1, unitPrice: 0, total: 0 }] });
+  const applyInventoryItem = (index: number, inventoryId: string) => {
+    const items = [...form.items];
+    if (inventoryId === '__labor__') {
+      items[index] = { ...items[index], description: 'Labor', inventoryId: '__labor__', total: items[index].quantity * items[index].unitPrice };
+      setForm({ ...form, items });
+      return;
+    }
+    const inv = inventory.find((x) => x.id === inventoryId);
+    if (!inv) return;
+    const unitPrice = Number(inv.unitPrice) || 0;
+    items[index] = {
+      ...items[index],
+      description: inv.name,
+      unitPrice,
+      inventoryId,
+      total: items[index].quantity * unitPrice,
+    };
+    setForm({ ...form, items });
+  };
+
+  const addLineItem = () => setForm({ ...form, items: [...form.items, { description: '', quantity: 1, unitPrice: 0, total: 0, inventoryId: '' }] });
   const removeLineItem = (i: number) => setForm({ ...form, items: form.items.filter((_, idx) => idx !== i) });
   const toggleWorker = (id: string) =>
     setForm(f => ({ ...f, assignedWorkerIds: f.assignedWorkerIds.includes(id) ? f.assignedWorkerIds.filter(x => x !== id) : [...f.assignedWorkerIds, id] }));
@@ -123,7 +143,7 @@ const AdminEstimates = () => {
     const lineIssue = form.items.some((i) => i.description.trim() && (i.quantity <= 0 || i.unitPrice < 0));
     const errors: Record<string, string> = {
       customerId: form.customerId ? '' : 'Select an existing customer before creating an estimate.',
-      items: form.items.every((i) => !i.description.trim()) ? 'Add at least one line item with a description.' : lineIssue ? 'Line quantity must be greater than 0 and price cannot be negative.' : '',
+      items: form.items.every((i) => !i.description.trim()) ? 'Add at least one line item from inventory or Labor.' : lineIssue ? 'Line quantity must be greater than 0 and price cannot be negative.' : '',
       dates: dateOrderError(form.requestedOn, form.validUntil, 'Valid until'),
       times: timeOrderError(form.arrivalStart, form.arrivalEnd),
       tax: taxRateError(form.taxRate),
@@ -139,7 +159,9 @@ const AdminEstimates = () => {
         notes: form.notes,
         validUntil: form.validUntil,
         taxRate: form.taxRate,
-        items: form.items,
+        items: form.items
+          .filter((i) => i.description.trim())
+          .map(({ description, quantity, unitPrice, total }) => ({ description, quantity, unitPrice, total })),
         poNumber: form.poNumber,
         referralSource: form.referralSource,
         opportunityRating: form.rating,
@@ -393,10 +415,23 @@ const AdminEstimates = () => {
             {/* Line items */}
             <div className="border-t pt-3 space-y-3">
               <div className="flex items-center justify-between"><Label>Line Items</Label><Button type="button" variant="outline" size="sm" onClick={addLineItem}><Plus className="w-3 h-3 mr-1" /> Add Item</Button></div>
+              {inventory.length === 0 && (
+                <p className="text-xs text-muted-foreground">No inventory items yet. Add stock on the Inventory page, or choose Labor.</p>
+              )}
               {form.items.map((item, idx) => (
                 <div key={idx} className="grid grid-cols-12 gap-2 items-end">
-                  <div className="col-span-5"><Input placeholder="Description" value={item.description} onChange={e => updateLineItem(idx, 'description', e.target.value)} /></div>
-                  <div className="col-span-2"><Input type="number" placeholder="Qty" value={item.quantity} onChange={e => updateLineItem(idx, 'quantity', parseInt(e.target.value) || 0)} /></div>
+                  <div className="col-span-5">
+                    <Select value={item.inventoryId || undefined} onValueChange={(v) => applyInventoryItem(idx, v)}>
+                      <SelectTrigger><SelectValue placeholder="Select inventory item" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__labor__">Labor</SelectItem>
+                        {inventory.map((inv) => (
+                          <SelectItem key={inv.id} value={inv.id}>{inv.name} · ${Number(inv.unitPrice).toFixed(2)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-2"><Input type="number" placeholder="Qty" value={item.quantity} onChange={e => updateLineItem(idx, 'quantity', parseFloat(e.target.value) || 0)} /></div>
                   <div className="col-span-2"><Input type="number" placeholder="Rate" value={item.unitPrice} onChange={e => updateLineItem(idx, 'unitPrice', parseFloat(e.target.value) || 0)} /></div>
                   <div className="col-span-2 text-sm font-medium text-right pt-2">${item.total.toFixed(2)}</div>
                   <div className="col-span-1">{form.items.length > 1 && <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeLineItem(idx)}><Trash2 className="w-3 h-3" /></Button>}</div>

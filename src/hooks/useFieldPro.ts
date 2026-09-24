@@ -199,8 +199,8 @@ export function useFieldPro() {
       await inv('estimates'); await inv('jobs');
       return r.jobId;
     },
-    generateInvoiceFromJob: async (jobId: string) => {
-      const invc = await api.jobs.generateInvoice(jobId);
+    generateInvoiceFromJob: async (jobId: string, items?: { description: string; quantity: number; unitPrice: number }[]) => {
+      const invc = await api.jobs.generateInvoice(jobId, items?.length ? { items } : {});
       await inv('invoices'); await inv('jobs');
       return invc.id as string;
     },
