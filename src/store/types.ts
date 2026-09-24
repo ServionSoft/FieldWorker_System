@@ -101,6 +101,7 @@ export interface Job {
   notesForTechs?: string;
   taxRate?: number;
   invoiceId?: string;
+  estimateId?: string;
   billingType?: string;
   starred?: boolean;
   pinned?: boolean;
@@ -173,6 +174,7 @@ export interface Invoice {
   jobId?: string;
   companyId: string;
   customerName: string;
+  customerId?: string;
   amount: number;
   tax: number;
   total: number;

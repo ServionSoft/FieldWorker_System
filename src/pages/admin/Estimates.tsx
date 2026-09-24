@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFieldPro } from '@/hooks/useFieldPro';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Search, Eye, Trash2, Star } from 'lucide-react';
+import { Plus, Search, Eye, Trash2, Star, FileText, Download, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { Estimate, EstimateStatus, EstimateLineItem } from '@/store/types';
 import { motion } from 'framer-motion';
@@ -38,6 +38,7 @@ const SOURCES = ['Website', 'Google', 'Referral', 'Yelp', 'Facebook', 'Repeat Cu
 
 const AdminEstimates = () => {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const [params] = useSearchParams();
   const { currentUser, customers, workers, inventory, addEstimate, deleteEstimate } = useFieldPro();
   const companyCustomers = customers.filter(c => c.companyId === currentUser?.companyId);
@@ -51,6 +52,12 @@ const AdminEstimates = () => {
   const [showDelete, setShowDelete] = useState<Estimate | null>(null);
   const [creating, setCreating] = useState(false);
   const [estErrors, setEstErrors] = useState<Record<string, string>>({});
+  const [editing, setEditing] = useState<Estimate | null>(null);
+  const [editItems, setEditItems] = useState<EstimateLineItem[]>([]);
+  const [editValidUntil, setEditValidUntil] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [pdfPreview, setPdfPreview] = useState<{ url: string; name: string } | null>(null);
+  const [pdfBusy, setPdfBusy] = useState<string | null>(null);
 
   const initialForm = {
     customerId: '', customerName: '', customerEmail: '', customerPhone: '',
@@ -113,8 +120,8 @@ const AdminEstimates = () => {
 
   const applyInventoryItem = (index: number, inventoryId: string) => {
     const items = [...form.items];
-    if (inventoryId === '__labor__') {
-      items[index] = { ...items[index], description: 'Labor', inventoryId: '__labor__', total: items[index].quantity * items[index].unitPrice };
+    if (inventoryId === '__custom__') {
+      items[index] = { ...items[index], description: '', inventoryId: '__custom__', total: items[index].quantity * items[index].unitPrice };
       setForm({ ...form, items });
       return;
     }
@@ -143,7 +150,7 @@ const AdminEstimates = () => {
     const lineIssue = form.items.some((i) => i.description.trim() && (i.quantity <= 0 || i.unitPrice < 0));
     const errors: Record<string, string> = {
       customerId: form.customerId ? '' : 'Select an existing customer before creating an estimate.',
-      items: form.items.every((i) => !i.description.trim()) ? 'Add at least one line item from inventory or Labor.' : lineIssue ? 'Line quantity must be greater than 0 and price cannot be negative.' : '',
+      items: form.items.every((i) => !i.description.trim()) ? 'Add at least one line item from inventory or a custom description.' : lineIssue ? 'Line quantity must be greater than 0 and price cannot be negative.' : '',
       dates: dateOrderError(form.requestedOn, form.validUntil, 'Valid until'),
       times: timeOrderError(form.arrivalStart, form.arrivalEnd),
       tax: taxRateError(form.taxRate),
@@ -179,6 +186,101 @@ const AdminEstimates = () => {
       toast.error(err?.message || 'Could not create estimate');
     } finally {
       setCreating(false);
+    }
+  };
+
+  const canEditEstimate = (est: Estimate) => est.status === 'draft' || est.status === 'sent';
+
+  const closePdfPreview = () => {
+    if (pdfPreview) URL.revokeObjectURL(pdfPreview.url);
+    setPdfPreview(null);
+  };
+
+  const viewPdf = async (est: Estimate) => {
+    setPdfBusy(est.id);
+    try {
+      const { blob, filename } = await api.estimates.pdf(est.id);
+      closePdfPreview();
+      setPdfPreview({ url: URL.createObjectURL(blob), name: filename || `${est.estimateNumber}.pdf` });
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Could not open PDF');
+    } finally {
+      setPdfBusy(null);
+    }
+  };
+
+  const downloadPdf = async (est: Estimate) => {
+    setPdfBusy(est.id);
+    try {
+      const { blob, filename } = await api.estimates.pdf(est.id, true);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename || `${est.estimateNumber}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Could not download PDF');
+    } finally {
+      setPdfBusy(null);
+    }
+  };
+
+  const startEdit = async (est: Estimate) => {
+    if (!canEditEstimate(est)) {
+      toast.error('Only draft or sent estimates can be edited');
+      return;
+    }
+    try {
+      const full = await api.estimates.get(est.id) as Estimate;
+      setEditing(full);
+      setEditItems((full.items ?? []).map((i) => ({ ...i })));
+      setEditValidUntil(full.validUntil || '');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Could not load estimate');
+    }
+  };
+
+  const updateEditLine = (index: number, field: keyof EstimateLineItem, value: string | number) => {
+    setEditItems((prev) => {
+      const next = [...prev];
+      const row = { ...next[index], [field]: value } as EstimateLineItem;
+      if (field === 'quantity' || field === 'unitPrice') {
+        row.total = Number(row.quantity) * Number(row.unitPrice);
+      }
+      next[index] = row;
+      return next;
+    });
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    const cleaned = editItems
+      .map((i) => ({
+        description: i.description.trim(),
+        quantity: Number(i.quantity) || 0,
+        unitPrice: Number(i.unitPrice) || 0,
+        total: (Number(i.quantity) || 0) * (Number(i.unitPrice) || 0),
+      }))
+      .filter((i) => i.description);
+    if (!cleaned.length || cleaned.some((i) => i.quantity <= 0 || i.unitPrice < 0)) {
+      toast.error('Add at least one line item with quantity greater than 0');
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      await api.estimates.update(editing.id, {
+        items: cleaned,
+        validUntil: editValidUntil || undefined,
+        taxRate: editing.taxRate,
+      });
+      await qc.invalidateQueries({ queryKey: ['estimates'] });
+      setEditing(null);
+      toast.success('Estimate updated');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Could not update estimate');
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -274,8 +376,19 @@ const AdminEstimates = () => {
                     {prefs.visible('valid') && <TableCell className="text-sm text-muted-foreground">{est.validUntil || '—'}</TableCell>}
                     <TableCell className="text-right" onClick={e => e.stopPropagation()}>
                       <div className="flex gap-1 justify-end">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/admin/estimates/${est.id}`)}><Eye className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setShowDelete(est)}><Trash2 className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" title="View PDF" disabled={pdfBusy === est.id} onClick={() => void viewPdf(est)}>
+                          <FileText className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Download PDF" disabled={pdfBusy === est.id} onClick={() => void downloadPdf(est)}>
+                          <Download className="w-4 h-4" />
+                        </Button>
+                        {canEditEstimate(est) && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit estimate" onClick={() => void startEdit(est)}>
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Details" onClick={() => navigate(`/admin/estimates/${est.id}`)}><Eye className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="Delete" onClick={() => setShowDelete(est)}><Trash2 className="w-4 h-4" /></Button>
                       </div>
                     </TableCell>
                   </motion.tr>
@@ -416,20 +529,27 @@ const AdminEstimates = () => {
             <div className="border-t pt-3 space-y-3">
               <div className="flex items-center justify-between"><Label>Line Items</Label><Button type="button" variant="outline" size="sm" onClick={addLineItem}><Plus className="w-3 h-3 mr-1" /> Add Item</Button></div>
               {inventory.length === 0 && (
-                <p className="text-xs text-muted-foreground">No inventory items yet. Add stock on the Inventory page, or choose Labor.</p>
+                <p className="text-xs text-muted-foreground">No inventory items yet. Add stock on the Inventory page, or choose Custom line.</p>
               )}
               {form.items.map((item, idx) => (
                 <div key={idx} className="grid grid-cols-12 gap-2 items-end">
-                  <div className="col-span-5">
+                  <div className="col-span-5 space-y-1">
                     <Select value={item.inventoryId || undefined} onValueChange={(v) => applyInventoryItem(idx, v)}>
-                      <SelectTrigger><SelectValue placeholder="Select inventory item" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Select item" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__labor__">Labor</SelectItem>
+                        <SelectItem value="__custom__">Custom line</SelectItem>
                         {inventory.map((inv) => (
                           <SelectItem key={inv.id} value={inv.id}>{inv.name} · ${Number(inv.unitPrice).toFixed(2)}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    {item.inventoryId === '__custom__' && (
+                      <Input
+                        placeholder="Description"
+                        value={item.description}
+                        onChange={(e) => updateLineItem(idx, 'description', e.target.value)}
+                      />
+                    )}
                   </div>
                   <div className="col-span-2"><Input type="number" placeholder="Qty" value={item.quantity} onChange={e => updateLineItem(idx, 'quantity', parseFloat(e.target.value) || 0)} /></div>
                   <div className="col-span-2"><Input type="number" placeholder="Rate" value={item.unitPrice} onChange={e => updateLineItem(idx, 'unitPrice', parseFloat(e.target.value) || 0)} /></div>
@@ -456,6 +576,65 @@ const AdminEstimates = () => {
             <Button variant="outline" onClick={() => { if (confirmDiscard(formDirty)) { setShowCreate(false); setForm(initialForm); } }}>Cancel</Button>
             <Button onClick={handleCreate} className="gradient-primary text-primary-foreground" disabled={creating}>{creating ? 'Creating…' : 'Create Estimate'}</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editing} onOpenChange={(open) => { if (!open) setEditing(null); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit {editing?.estimateNumber}</DialogTitle>
+          </DialogHeader>
+          {editing && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Valid until</Label>
+                <Input type="date" value={editValidUntil} onChange={(e) => setEditValidUntil(e.target.value)} />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label>Line items</Label>
+                <Button type="button" variant="outline" size="sm" onClick={() => setEditItems((prev) => [...prev, { description: '', quantity: 1, unitPrice: 0, total: 0 }])}>
+                  <Plus className="w-3 h-3 mr-1" /> Add Item
+                </Button>
+              </div>
+              {editItems.map((item, idx) => (
+                <div key={idx} className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-5">
+                    <Input placeholder="Description" value={item.description} onChange={(e) => updateEditLine(idx, 'description', e.target.value)} />
+                  </div>
+                  <div className="col-span-2">
+                    <Input type="number" placeholder="Qty" value={item.quantity} onChange={(e) => updateEditLine(idx, 'quantity', parseFloat(e.target.value) || 0)} />
+                  </div>
+                  <div className="col-span-2">
+                    <Input type="number" placeholder="Rate" value={item.unitPrice} onChange={(e) => updateEditLine(idx, 'unitPrice', parseFloat(e.target.value) || 0)} />
+                  </div>
+                  <div className="col-span-2 text-sm font-medium text-right pt-2">${(Number(item.quantity) * Number(item.unitPrice)).toFixed(2)}</div>
+                  <div className="col-span-1">
+                    {editItems.length > 1 && (
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setEditItems((prev) => prev.filter((_, i) => i !== idx))}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <div className="text-sm text-right text-muted-foreground">Tax and total are recalculated when you save.</div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
+            <Button disabled={savingEdit} onClick={() => void saveEdit()}>{savingEdit ? 'Saving…' : 'Save estimate'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!pdfPreview} onOpenChange={(open) => { if (!open) closePdfPreview(); }}>
+        <DialogContent className="max-w-4xl h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{pdfPreview?.name || 'Estimate PDF'}</DialogTitle>
+          </DialogHeader>
+          {pdfPreview && (
+            <iframe src={pdfPreview.url} title="Estimate PDF" className="w-full flex-1 min-h-[70vh] rounded border" />
+          )}
         </DialogContent>
       </Dialog>
 

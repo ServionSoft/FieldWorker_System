@@ -116,10 +116,6 @@ const JobDetail = () => {
   };
 
   const handleGenerateInvoice = async () => {
-    if (job.invoiceId) {
-      navigate('/admin/invoices');
-      return;
-    }
     if (!job.lineItems || job.lineItems.length === 0) {
       toast.error('No line items on this job. Add line items before generating an invoice.');
       return;
@@ -227,7 +223,7 @@ const JobDetail = () => {
           <Button variant="outline" className="gap-2" onClick={() => setShowAssign(true)}><ArrowUpDown className="w-4 h-4" /> Assign Worker</Button>
           {job.status === 'completed' && (
             <Button className="gradient-primary text-primary-foreground gap-2" onClick={handleGenerateInvoice}>
-              <FileTextIcon className="w-4 h-4" /> {job.invoiceId ? 'View Invoice' : 'Generate Invoice'}
+              <FileTextIcon className="w-4 h-4" /> Generate Invoice
             </Button>
           )}
         </div>
@@ -456,18 +452,25 @@ const JobDetail = () => {
           <Card className="shadow-theme-sm">
             <CardContent className="p-6">
               {jobInvoices.length > 0 ? (
-                <div className="space-y-3">{jobInvoices.map(inv => (
-                  <div key={inv.id} className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/50" onClick={() => navigate('/admin/invoices')}>
-                    <div>
-                      <p className="font-medium text-sm">{inv.invoiceNumber}</p>
-                      <p className="text-xs text-muted-foreground">{inv.createdAt} · Due {inv.dueDate}</p>
+                <div className="space-y-3">
+                  {jobInvoices.map(inv => (
+                    <div key={inv.id} className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/50" onClick={() => navigate('/admin/invoices')}>
+                      <div>
+                        <p className="font-medium text-sm">{inv.invoiceNumber}</p>
+                        <p className="text-xs text-muted-foreground">{inv.createdAt} · Due {inv.dueDate}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">${inv.total.toFixed(2)}</p>
+                        <Badge variant="secondary" className="text-xs">{inv.status}</Badge>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium">${inv.total.toFixed(2)}</p>
-                      <Badge variant="secondary" className="text-xs">{inv.status}</Badge>
-                    </div>
-                  </div>
-                ))}</div>
+                  ))}
+                  {job.status === 'completed' && (
+                    <Button onClick={handleGenerateInvoice} variant="outline" className="gap-2">
+                      <FileTextIcon className="w-4 h-4" /> Generate another invoice
+                    </Button>
+                  )}
+                </div>
               ) : (
                 <div className="text-center py-8 space-y-3">
                   <p className="text-sm text-muted-foreground">No invoices for this job.</p>

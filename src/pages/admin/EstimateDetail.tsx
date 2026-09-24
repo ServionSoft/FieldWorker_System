@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Send, Check, X, Briefcase, Plus, Trash2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ArrowLeft, Send, Check, X, Briefcase, Plus, Trash2, FileText, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { EstimateLineItem, EstimateStatus } from '@/store/types';
 import CommunicationsThread from '@/components/communications/CommunicationsThread';
@@ -39,6 +40,8 @@ const EstimateDetail = () => {
   const estimate = estQ.data;
   const [editingItems, setEditingItems] = useState(false);
   const [items, setItems] = useState<EstimateLineItem[]>([]);
+  const [pdfPreview, setPdfPreview] = useState<{ url: string; name: string } | null>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
   const companyId = useAppStore((s) => s.company?.id);
   const { track } = useRecentlyViewed(companyId);
   useEffect(() => {
@@ -148,6 +151,34 @@ const EstimateDetail = () => {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" className="gap-2" disabled={pdfBusy} onClick={async () => {
+            setPdfBusy(true);
+            try {
+              const { blob, filename } = await api.estimates.pdf(estimate.id);
+              if (pdfPreview) URL.revokeObjectURL(pdfPreview.url);
+              setPdfPreview({ url: URL.createObjectURL(blob), name: filename || `${estimate.estimateNumber}.pdf` });
+            } catch (err: unknown) {
+              toast.error(err instanceof Error ? err.message : 'Could not open PDF');
+            } finally {
+              setPdfBusy(false);
+            }
+          }}><FileText className="w-4 h-4" /> View PDF</Button>
+          <Button variant="outline" className="gap-2" disabled={pdfBusy} onClick={async () => {
+            setPdfBusy(true);
+            try {
+              const { blob, filename } = await api.estimates.pdf(estimate.id, true);
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = filename || `${estimate.estimateNumber}.pdf`;
+              a.click();
+              URL.revokeObjectURL(url);
+            } catch (err: unknown) {
+              toast.error(err instanceof Error ? err.message : 'Could not download PDF');
+            } finally {
+              setPdfBusy(false);
+            }
+          }}><Download className="w-4 h-4" /> Download</Button>
           {estimate.status === 'draft' && (
             <Button variant="outline" className="gap-2" onClick={() => handleStatusChange('sent')}><Send className="w-4 h-4" /> Send</Button>
           )}
@@ -315,6 +346,21 @@ const EstimateDetail = () => {
           </Card>
         </div>
       </div>
+      <Dialog open={!!pdfPreview} onOpenChange={(open) => {
+        if (!open && pdfPreview) {
+          URL.revokeObjectURL(pdfPreview.url);
+          setPdfPreview(null);
+        }
+      }}>
+        <DialogContent className="max-w-4xl h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{pdfPreview?.name || 'Estimate PDF'}</DialogTitle>
+          </DialogHeader>
+          {pdfPreview && (
+            <iframe src={pdfPreview.url} title="Estimate PDF" className="w-full flex-1 min-h-[70vh] rounded border" />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

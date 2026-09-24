@@ -86,10 +86,67 @@ invoicesRouter.get('/:id', tenantRoute(async (req, res, client) => {
         throw notFound('Invoice');
     res.json(inv);
 }));
+invoicesRouter.get('/:id/pdf', tenantRoute(async (req, res, client) => {
+    const pdf = await buildInvoicePdf(client, req.auth.companyId, req.params.id);
+    if (!pdf)
+        throw notFound('Invoice');
+    const download = String(req.query.download ?? '') === '1';
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `${download ? 'attachment' : 'inline'}; filename="${pdf.filename}"`);
+    res.send(pdf.content);
+}));
 invoicesRouter.patch('/:id', requirePermission('invoices.write'), tenantRoute(async (req, res, client) => {
-    const body = z.object({ status: z.enum(['draft', 'sent', 'paid', 'overdue']) }).parse(req.body);
+    const body = z.object({
+        status: z.enum(['draft', 'sent', 'paid', 'overdue']).optional(),
+        dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        items: z.array(z.object({
+            description: z.string().trim().min(1).max(300),
+            quantity: z.coerce.number().positive(),
+            unitPrice: z.coerce.number().min(0),
+        })).min(1).optional(),
+    }).parse(req.body ?? {});
+    if (!body.status && !body.items && !body.dueDate)
+        throw badRequest('Nothing to update');
     const companyId = req.auth.companyId;
-    const paidAt = body.status === 'paid' ? new Date().toISOString() : null;
+    const existing = await mapInvoice(client, companyId, req.params.id);
+    if (!existing)
+        throw notFound('Invoice');
+    if (body.items || body.dueDate) {
+        if (existing.status === 'paid')
+            throw badRequest('Paid invoices cannot be edited');
+    }
+    if (body.items) {
+        const lines = body.items.map((li) => ({
+            description: li.description,
+            quantity: li.quantity,
+            unit_price: li.unitPrice,
+            total: +(li.quantity * li.unitPrice).toFixed(2),
+        }));
+        const subtotal = lines.reduce((s, r) => s + r.total, 0);
+        let taxRate = 0;
+        if (existing.jobId) {
+            const job = await client.query(`SELECT tax_rate FROM jobs WHERE company_id = $1 AND id = $2`, [companyId, existing.jobId]);
+            taxRate = Number(job.rows[0]?.tax_rate ?? 0);
+        }
+        else if (Number(existing.amount) > 0) {
+            taxRate = (Number(existing.tax) / Number(existing.amount)) * 100;
+        }
+        const tax = +(subtotal * (taxRate / 100)).toFixed(2);
+        await client.query(`DELETE FROM invoice_line_items WHERE invoice_id = $1`, [req.params.id]);
+        for (const li of lines) {
+            await client.query(`INSERT INTO invoice_line_items (company_id, invoice_id, description, quantity, unit_price, total)
+         VALUES ($1,$2,$3,$4,$5,$6)`, [companyId, req.params.id, li.description, li.quantity, li.unit_price, li.total]);
+        }
+        await client.query(`UPDATE invoices SET subtotal = $3, tax = $4, total = $5, due_date = coalesce($6::date, due_date)
+       WHERE company_id = $1 AND id = $2`, [companyId, req.params.id, subtotal, tax, subtotal + tax, body.dueDate ?? null]);
+    }
+    else if (body.dueDate) {
+        await client.query(`UPDATE invoices SET due_date = $3 WHERE company_id = $1 AND id = $2`, [companyId, req.params.id, body.dueDate]);
+    }
+    if (!body.status) {
+        res.json(await mapInvoice(client, companyId, req.params.id));
+        return;
+    }
     const r = await client.query(`UPDATE invoices SET status = $3, paid_at = CASE WHEN $3 = 'paid' THEN now() ELSE paid_at END
      WHERE company_id = $1 AND id = $2 RETURNING id`, [companyId, req.params.id, body.status]);
     if (!r.rowCount)
@@ -160,10 +217,6 @@ jobInvoiceRouter.post('/', tenantRoute(async (req, res, client) => {
     if (!job.rowCount)
         throw notFound('Job');
     const j = job.rows[0];
-    if (j.invoice_id) {
-        res.json(await mapInvoice(client, companyId, j.invoice_id));
-        return;
-    }
     let lines;
     if (body.items?.length) {
         lines = body.items.map((li) => ({

@@ -268,6 +268,18 @@ export const api = {
     status: (id: string, status: string) =>
       request(`/estimates/${id}/status`, { method: 'POST', body: JSON.stringify({ status }) }),
     convert: (id: string) => request<{ jobId: string }>(`/estimates/${id}/convert`, { method: 'POST' }),
+    pdf: async (id: string, download = false) => {
+      const token = getAccessToken();
+      const res = await fetch(`${BASE}/estimates/${id}/pdf${download ? '?download=1' : ''}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new ApiError(res.status, 'PDF_FAILED', 'Could not load estimate PDF');
+      const blob = await res.blob();
+      const cd = res.headers.get('content-disposition') || '';
+      const match = /filename\*?=(?:UTF-8''|"?)([^";]+)/i.exec(cd);
+      const filename = match ? decodeURIComponent(match[1].replace(/"/g, '')) : 'estimate.pdf';
+      return { blob, filename };
+    },
   },
   invoices: {
     list: () => request<{ items: any[] }>('/invoices?pageSize=100').then((r) => r.items),
@@ -275,6 +287,18 @@ export const api = {
       request<PageResult>(`/invoices?${qs({ pageSize: 25, ...q })}`),
     get: (id: string) => request<any>(`/invoices/${id}`),
     update: (id: string, body: unknown) => request<any>(`/invoices/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+    pdf: async (id: string, download = false) => {
+      const token = getAccessToken();
+      const res = await fetch(`${BASE}/invoices/${id}/pdf${download ? '?download=1' : ''}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new ApiError(res.status, 'PDF_FAILED', 'Could not load invoice PDF');
+      const blob = await res.blob();
+      const cd = res.headers.get('content-disposition') || '';
+      const match = /filename\*?=(?:UTF-8''|"?)([^";]+)/i.exec(cd);
+      const filename = match ? decodeURIComponent(match[1].replace(/"/g, '')) : 'invoice.pdf';
+      return { blob, filename };
+    },
   },
   inventory: {
     list: () => request<{ items: any[] }>('/inventory?pageSize=100').then((r) => r.items),

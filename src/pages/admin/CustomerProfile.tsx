@@ -57,7 +57,7 @@ const CustomerProfile = () => {
   const customerDocs = documents.filter(d => customerJobs.some(j => j.id === d.jobId));
   const customerAgreements = serviceAgreements.filter(sa => sa.customerId === id || sa.customerName === customer?.name);
   const liveRevenue = customerInvoices.filter((i: any) => i.status === 'paid').reduce((s: number, i: any) => s + i.total, 0);
-  const billableJobs = customerJobs.filter(j => !j.invoiceId && (j.lineItems?.length ?? 0) > 0 && j.status !== 'cancelled');
+  const billableJobs = customerJobs.filter(j => (j.lineItems?.length ?? 0) > 0 && j.status !== 'cancelled');
 
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);

@@ -178,12 +178,24 @@ estimatesRouter.get('/:id', tenantRoute(async (req, res, client) => {
         throw notFound('Estimate');
     res.json(e);
 }));
+estimatesRouter.get('/:id/pdf', tenantRoute(async (req, res, client) => {
+    const pdf = await buildEstimatePdf(client, req.auth.companyId, req.params.id);
+    if (!pdf)
+        throw notFound('Estimate');
+    const download = String(req.query.download ?? '') === '1';
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `${download ? 'attachment' : 'inline'}; filename="${pdf.filename}"`);
+    res.send(pdf.content);
+}));
 estimatesRouter.patch('/:id', requirePermission('estimates.write'), tenantRoute(async (req, res, client) => {
     const body = estBody.partial().extend({ customerId: z.string().uuid().optional() }).parse(req.body);
     const companyId = req.auth.companyId;
     const existing = await mapEstimate(client, companyId, req.params.id);
     if (!existing)
         throw notFound('Estimate');
+    if (body.items && (existing.status === 'converted' || existing.convertedJobId)) {
+        throw badRequest('Converted estimates cannot be edited');
+    }
     if (body.items) {
         const subtotal = body.items.reduce((s, i) => s + (i.total ?? i.quantity * i.unitPrice), 0);
         const taxRate = body.taxRate ?? existing.taxRate;
@@ -193,8 +205,9 @@ estimatesRouter.patch('/:id', requirePermission('estimates.write'), tenantRoute(
             await client.query(`INSERT INTO estimate_line_items (company_id, estimate_id, description, quantity, unit_price, total)
          VALUES ($1,$2,$3,$4,$5,$6)`, [companyId, req.params.id, li.description, li.quantity, li.unitPrice, li.total ?? li.quantity * li.unitPrice]);
         }
-        await client.query(`UPDATE estimates SET subtotal=$3, tax=$4, total=$5, tax_rate=$6, notes=coalesce($7, notes), description=coalesce($8, description)
-       WHERE company_id=$1 AND id=$2`, [companyId, req.params.id, subtotal, tax, subtotal + tax, taxRate, body.notes ?? null, body.description ?? null]);
+        await client.query(`UPDATE estimates SET subtotal=$3, tax=$4, total=$5, tax_rate=$6, notes=coalesce($7, notes), description=coalesce($8, description),
+         valid_until = coalesce($9::date, valid_until)
+       WHERE company_id=$1 AND id=$2`, [companyId, req.params.id, subtotal, tax, subtotal + tax, taxRate, body.notes ?? null, body.description ?? null, body.validUntil || null]);
     }
     res.json(await mapEstimate(client, companyId, req.params.id));
 }));
