@@ -350,6 +350,8 @@ export const api = {
       request<any>('/communications/call', { method: 'POST', body: JSON.stringify(body) }),
     sendTemplate: (body: unknown) =>
       request<any>('/communications/send-template', { method: 'POST', body: JSON.stringify(body) }),
+    sendEmail: (body: unknown) =>
+      request<any>('/communications/email', { method: 'POST', body: JSON.stringify(body) }),
     read: (id: string) => request(`/communications/${id}/read`, { method: 'POST' }),
     readAll: (filter?: unknown) =>
       request('/communications/read-all', { method: 'POST', body: JSON.stringify(filter ?? {}) }),
@@ -382,6 +384,8 @@ export const api = {
     completeOnboarding: () => request('/company/onboarding/complete', { method: 'POST' }),
     updateSmtp: (body: unknown) => request('/company/smtp', { method: 'PATCH', body: JSON.stringify(body) }),
     testSmtp: (to?: string) => request('/company/smtp/test', { method: 'POST', body: JSON.stringify({ to }) }),
+    updateTwilio: (body: unknown) => request('/company/twilio', { method: 'PATCH', body: JSON.stringify(body) }),
+    testTwilio: () => request('/company/twilio/test', { method: 'POST', body: JSON.stringify({}) }),
   },
   platform: {
     companies: () => request<{ items: any[] }>('/platform/companies?pageSize=100').then((r) => r.items),

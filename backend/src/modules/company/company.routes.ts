@@ -6,9 +6,11 @@ import { tenantRoute } from '../../middleware/tenant.js';
 import { badRequest, forbidden, notFound } from '../../utils/errors.js';
 import { encryptSecret } from '../../utils/crypto.js';
 import { sendTenantSmtpTest } from '../../services/email.js';
+import { loadTenantTwilio, twilioWebhookUrls, verifyTwilioCredentials } from '../../services/twilio.js';
+import { toE164 } from '../../utils/phone.js';
 import { isCompanyProfileComplete } from './onboarding.js';
 import { invoiceSettingsPatchSchema, parseInvoiceSettings } from './invoice-settings.js';
-import { pool } from '../../db/pool.js';
+import { pool, withTenant } from '../../db/pool.js';
 import type { AuthedRequest } from '../../types.js';
 import type { Request, Response, NextFunction } from 'express';
 
@@ -25,9 +27,15 @@ companyRouter.get('/', tenantRoute(async (req, res, client) => {
     [req.auth.companyId],
   );
   if (!rows[0]) throw notFound('Company');
-  const smtp = await client.query(`SELECT smtp_host, smtp_port, smtp_user, smtp_secure, smtp_from_name, smtp_from_email, smtp_reply_to, smtp_password_enc FROM company_settings WHERE company_id = $1`, [req.auth.companyId]);
+  const smtp = await client.query(
+    `SELECT smtp_host, smtp_port, smtp_user, smtp_secure, smtp_from_name, smtp_from_email, smtp_reply_to, smtp_password_enc,
+            twilio_account_sid, twilio_auth_token_enc, twilio_from_number
+     FROM company_settings WHERE company_id = $1`,
+    [req.auth.companyId],
+  );
   const s = smtp.rows[0];
   const c = rows[0];
+  const twilioCreds = await loadTenantTwilio(client, req.auth.companyId!);
   res.json({
     id: c.id,
     name: c.name,
@@ -59,6 +67,14 @@ companyRouter.get('/', tenantRoute(async (req, res, client) => {
       fromEmail: s?.smtp_from_email ?? '',
       replyTo: s?.smtp_reply_to ?? '',
       configured: Boolean(s?.smtp_password_enc || s?.smtp_host),
+    },
+    twilio: {
+      accountSid: s?.twilio_account_sid ?? '',
+      fromNumber: s?.twilio_from_number || c.twilio_number || '',
+      configured: Boolean(s?.twilio_account_sid && s?.twilio_auth_token_enc),
+      hasAuthToken: Boolean(s?.twilio_auth_token_enc),
+      source: twilioCreds?.source ?? null,
+      webhooks: twilioWebhookUrls(),
     },
   });
 }));
@@ -182,3 +198,63 @@ companyRouter.post('/smtp/test', requirePermission('settings.smtp'), requireTena
     next(err);
   }
 });
+
+companyRouter.patch('/twilio', requirePermission('settings.company'), tenantRoute(async (req, res, client) => {
+  const body = z.object({
+    accountSid: z.string().trim().min(10).max(64),
+    authToken: z.string().trim().max(128).optional().or(z.literal('')),
+    fromNumber: z.string().trim().min(8).max(32),
+  }).parse(req.body);
+  const companyId = req.auth.companyId!;
+  const from = toE164(body.fromNumber);
+  if (!from) throw badRequest('Enter a valid Twilio From number in E.164 format, e.g. +15551234567');
+  const token = (body.authToken || '').trim();
+  if (token && token.length < 8) throw badRequest('Auth token is too short');
+  await client.query(
+    `INSERT INTO company_settings (company_id) VALUES ($1) ON CONFLICT (company_id) DO NOTHING`,
+    [companyId],
+  );
+  const existing = await client.query(
+    `SELECT twilio_auth_token_enc FROM company_settings WHERE company_id = $1`,
+    [companyId],
+  );
+  const tokenEnc = token ? encryptSecret(token) : null;
+  if (!tokenEnc && !existing.rows[0]?.twilio_auth_token_enc) {
+    throw badRequest('Auth token is required');
+  }
+  await client.query(
+    `UPDATE company_settings SET
+       twilio_account_sid = $2,
+       twilio_auth_token_enc = coalesce($3, twilio_auth_token_enc),
+       twilio_from_number = $4
+     WHERE company_id = $1`,
+    [companyId, body.accountSid, tokenEnc, from],
+  );
+  await client.query(`UPDATE companies SET twilio_number = $2 WHERE id = $1`, [companyId, from]);
+  res.json({ ok: true, configured: true, fromNumber: from });
+}));
+
+companyRouter.post('/twilio/test', requirePermission('settings.company'), requireTenant, async (req, res, next) => {
+  try {
+    const auth = (req as AuthedRequest).auth;
+    const companyId = auth.companyId!;
+    const { rows } = await pool.query(
+      `SELECT status, trial_ends_at FROM companies WHERE id = $1 AND deleted_at IS NULL`,
+      [companyId],
+    );
+    const company = rows[0];
+    if (!company) throw forbidden('Company not found');
+    if (company.status === 'suspended') throw forbidden('Company is suspended');
+    if (company.status === 'trial' && company.trial_ends_at && new Date(company.trial_ends_at) < new Date()) {
+      throw forbidden('Trial expired');
+    }
+    const creds = await withTenant(companyId, null, true, (client) => loadTenantTwilio(client, companyId));
+    if (!creds) throw badRequest('Twilio is not configured. Save Account SID, Auth Token, and From number first.');
+    const result = await verifyTwilioCredentials(creds.accountSid, creds.authToken);
+    if (!result.ok) throw badRequest(result.error);
+    res.json({ ok: true, friendlyName: result.friendlyName, source: creds.source });
+  } catch (err) {
+    next(err);
+  }
+});
+

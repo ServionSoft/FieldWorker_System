@@ -4,10 +4,10 @@ import { requireAuth } from '../../middleware/auth.js';
 import { requirePermission, requireRole, requireTenant } from '../../middleware/rbac.js';
 import { tenantRoute } from '../../middleware/tenant.js';
 import { notFound, badRequest } from '../../utils/errors.js';
-import { sendTenantCrmEmail } from '../../services/tenantCrmEmail.js';
+import { sendTenantCrmEmail, customerEmailFor } from '../../services/tenantCrmEmail.js';
 import { TENANT_TEMPLATE_TYPES } from '../../services/email.js';
 import { buildInvoicePdf, buildEstimatePdf } from '../../services/invoice-pdf.js';
-import { requireTwilio, fromNumber, webhookBase, twilioConfigured } from '../../services/twilio.js';
+import { loadTenantTwilio, requireTenantTwilio, twilioClientFor, webhookBase } from '../../services/twilio.js';
 import { toE164 } from '../../utils/phone.js';
 import { parsePage, pageResult } from '../../utils/helpers.js';
 
@@ -91,9 +91,11 @@ commsRouter.post('/', tenantRoute(async (req, res, client) => {
 
 commsRouter.get('/twilio', tenantRoute(async (req, res, client) => {
   const company = await client.query(`SELECT twilio_number, phone FROM companies WHERE id = $1`, [req.auth.companyId]);
+  const creds = await loadTenantTwilio(client, req.auth.companyId!);
   res.json({
-    configured: twilioConfigured(),
-    fromNumber: company.rows[0]?.twilio_number || null,
+    configured: Boolean(creds),
+    source: creds?.source ?? null,
+    fromNumber: creds?.fromNumber || company.rows[0]?.twilio_number || null,
     companyPhone: company.rows[0]?.phone || null,
   });
 }));
@@ -106,11 +108,11 @@ commsRouter.post('/sms', tenantRoute(async (req, res, client) => {
     jobId: z.string().uuid().optional(),
     estimateId: z.string().uuid().optional(),
   }).parse(req.body);
-  const company = await client.query(`SELECT twilio_number FROM companies WHERE id = $1`, [req.auth.companyId]);
-  const from = fromNumber(company.rows[0]?.twilio_number);
+  const creds = requireTenantTwilio(await loadTenantTwilio(client, req.auth.companyId!));
+  const from = creds.fromNumber;
   const to = toE164(body.to);
   if (!to) throw badRequest('Invalid destination phone number');
-  const clientTwilio = requireTwilio();
+  const clientTwilio = twilioClientFor(creds);
   const msg = await clientTwilio.messages.create({
     from,
     to,
@@ -141,8 +143,8 @@ commsRouter.post('/call', tenantRoute(async (req, res, client) => {
     jobId: z.string().uuid().optional(),
     estimateId: z.string().uuid().optional(),
   }).parse(req.body);
-  const company = await client.query(`SELECT twilio_number FROM companies WHERE id = $1`, [req.auth.companyId]);
-  const from = fromNumber(company.rows[0]?.twilio_number);
+  const creds = requireTenantTwilio(await loadTenantTwilio(client, req.auth.companyId!));
+  const from = creds.fromNumber;
   const customerTo = toE164(body.to);
   const callback = toE164(body.callbackNumber);
   if (!customerTo || !callback) throw badRequest('Invalid phone number');
@@ -159,7 +161,7 @@ commsRouter.post('/call', tenantRoute(async (req, res, client) => {
     ],
   );
   const commId = created.rows[0].id;
-  const twilioClient = requireTwilio();
+  const twilioClient = twilioClientFor(creds);
   const call = await twilioClient.calls.create({
     from,
     to: callback,
@@ -281,6 +283,64 @@ commsRouter.post('/send-template', tenantRoute(async (req, res, client) => {
       ...extra,
     },
     attachments: attachments.length ? attachments : undefined,
+  });
+  if (!result.sent) {
+    const detail = result.error === 'not_configured'
+      ? 'Could not send via tenant SMTP. Configure Company email (SMTP) — FieldPro platform SMTP is never used for customer mail.'
+      : `Could not send via tenant SMTP: ${result.error}`;
+    throw badRequest(detail);
+  }
+  res.status(201).json({ ...map(result.communication), channel: 'tenant' });
+}));
+
+commsRouter.post('/email', tenantRoute(async (req, res, client) => {
+  const body = z.object({
+    subject: z.string().trim().min(1).max(200),
+    message: z.string().trim().min(1).max(10000),
+    customerId: z.string().uuid().optional(),
+    jobId: z.string().uuid().optional(),
+    estimateId: z.string().uuid().optional(),
+    toEmail: z.string().email().optional(),
+  }).parse(req.body);
+  const companyId = req.auth.companyId!;
+  let customerId = body.customerId;
+  let jobId = body.jobId;
+  let estimateId = body.estimateId;
+  if (!customerId && jobId) {
+    const job = await client.query(
+      `SELECT customer_id FROM jobs WHERE company_id = $1 AND id = $2`,
+      [companyId, jobId],
+    );
+    if (!job.rowCount) throw notFound('Job');
+    customerId = job.rows[0].customer_id;
+  }
+  if (!customerId && estimateId) {
+    const est = await client.query(
+      `SELECT customer_id FROM estimates WHERE company_id = $1 AND id = $2`,
+      [companyId, estimateId],
+    );
+    if (!est.rowCount) throw notFound('Estimate');
+    customerId = est.rows[0].customer_id;
+  }
+  if (!customerId) throw badRequest('Customer is required');
+  const cust = await customerEmailFor(client, companyId, customerId);
+  const to = body.toEmail || cust?.email;
+  if (!to) throw badRequest('This customer has no email address');
+  const company = await client.query(`SELECT name FROM companies WHERE id = $1`, [companyId]);
+  const result = await sendTenantCrmEmail(client, {
+    companyId,
+    type: 'customer_communication',
+    to,
+    customerId,
+    jobId,
+    estimateId,
+    userId: req.auth.userId,
+    template: { subject: body.subject, body: body.message },
+    vars: {
+      customerName: cust?.name ?? 'Customer',
+      companyName: company.rows[0]?.name ?? '',
+      message: body.message,
+    },
   });
   if (!result.sent) {
     const detail = result.error === 'not_configured'

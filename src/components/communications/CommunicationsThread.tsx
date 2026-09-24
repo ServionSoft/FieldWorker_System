@@ -58,10 +58,14 @@ const formatTime = (iso: string) => {
 
 const CommunicationsThread: React.FC<Props> = ({ toNumber, filter, compact, title = 'Communications' }) => {
   const qc = useQueryClient();
-  const { communications, currentUser, company, addCommunication, markCommunicationRead, customers, jobs, estimates } = useFieldPro();
+  const { communications, currentUser, company, markCommunicationRead, customers, jobs, estimates } = useFieldPro();
   const [showCall, setShowCall] = useState(false);
   const [showSms, setShowSms] = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
   const [smsBody, setSmsBody] = useState('');
+  const [emailTo, setEmailTo] = useState('');
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
   const [callNotes, setCallNotes] = useState('');
   const [callbackNumber, setCallbackNumber] = useState(currentUser?.phone || '');
   const [busy, setBusy] = useState(false);
@@ -136,6 +140,69 @@ const CommunicationsThread: React.FC<Props> = ({ toNumber, filter, compact, titl
       setShowSms(false);
     } catch (err: any) {
       toast.error(err?.message || 'SMS failed. Check Twilio settings.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resolvedToEmail = (): string => {
+    const cid = resolveCustomerId();
+    const cust = customers.find(c => c.id === cid);
+    if (cust?.email) return cust.email;
+    if (filter.jobId) {
+      const job = jobs.find(j => j.id === filter.jobId);
+      if (job?.customerEmail) return job.customerEmail;
+      if (job?.primaryContact?.email) return job.primaryContact.email;
+    }
+    if (filter.estimateId) {
+      const est = estimates.find(e => e.id === filter.estimateId);
+      if (est?.customerEmail) return est.customerEmail;
+    }
+    return '';
+  };
+
+  const defaultEmailSubject = (): string => {
+    if (filter.jobId) {
+      const job = jobs.find(j => j.id === filter.jobId);
+      if (job?.title) return `Re: ${job.title}`;
+    }
+    if (filter.estimateId) {
+      const est = estimates.find(e => e.id === filter.estimateId);
+      if (est?.estimateNumber) return `Re: ${est.estimateNumber}`;
+    }
+    return company?.name ? `Message from ${company.name}` : 'Message';
+  };
+
+  const openEmail = () => {
+    const to = resolvedToEmail();
+    if (!to) {
+      toast.error('This customer has no email address');
+      return;
+    }
+    setEmailTo(to);
+    setEmailSubject(defaultEmailSubject());
+    setEmailBody('');
+    setShowEmail(true);
+  };
+
+  const handleSendEmail = async () => {
+    if (!emailSubject.trim() || !emailBody.trim()) return;
+    setBusy(true);
+    try {
+      await api.communications.sendEmail({
+        subject: emailSubject.trim(),
+        message: emailBody.trim(),
+        toEmail: emailTo.trim() || undefined,
+        customerId: resolveCustomerId(),
+        jobId: filter.jobId,
+        estimateId: filter.estimateId,
+      });
+      await qc.invalidateQueries({ queryKey: ['communications'] });
+      toast.success('Email sent');
+      setEmailBody('');
+      setShowEmail(false);
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not send email. Check company SMTP settings.');
     } finally {
       setBusy(false);
     }
@@ -222,16 +289,7 @@ const CommunicationsThread: React.FC<Props> = ({ toNumber, filter, compact, titl
             <Button size="sm" className="gradient-primary text-primary-foreground gap-1.5 h-8" onClick={() => setShowSms(true)}>
               <MessageSquare className="w-3.5 h-3.5" /> Text
             </Button>
-            <Button size="sm" variant="outline" className="gap-1.5 h-8" onClick={() => {
-              const cid = resolveCustomerId();
-              addCommunication({
-                type: 'email', direction: 'outbound', status: 'sent',
-                fromNumber: 'office', toNumber: toNumber,
-                customerId: cid, jobId: filter.jobId, estimateId: filter.estimateId,
-                body: 'Logged outbound email (no provider in v1).',
-              });
-              toast.success('Email logged');
-            }}>
+            <Button size="sm" variant="outline" className="gap-1.5 h-8" onClick={openEmail}>
               <Mail className="w-3.5 h-3.5" /> Email
             </Button>
           </div>
@@ -328,6 +386,56 @@ const CommunicationsThread: React.FC<Props> = ({ toNumber, filter, compact, titl
             <Button variant="outline" onClick={() => setShowSms(false)}>Cancel</Button>
             <Button onClick={handleSendSms} className="gap-2 gradient-primary text-primary-foreground" disabled={!smsBody.trim() || busy}>
               <MessageSquare className="w-4 h-4" /> {busy ? 'Sending…' : 'Send via Twilio'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showEmail} onOpenChange={setShowEmail}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="w-4 h-4" /> Send Email
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>To</Label>
+              <Input
+                type="email"
+                value={emailTo}
+                onChange={e => setEmailTo(e.target.value)}
+                placeholder="customer@email.com"
+              />
+            </div>
+            <div>
+              <Label>Subject</Label>
+              <Input
+                value={emailSubject}
+                onChange={e => setEmailSubject(e.target.value)}
+                placeholder="Subject"
+                maxLength={200}
+              />
+            </div>
+            <div>
+              <Label>Message</Label>
+              <Textarea
+                rows={8}
+                value={emailBody}
+                onChange={e => setEmailBody(e.target.value)}
+                placeholder="Type your message..."
+                maxLength={10000}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEmail(false)}>Cancel</Button>
+            <Button
+              onClick={handleSendEmail}
+              className="gap-2 gradient-primary text-primary-foreground"
+              disabled={!emailSubject.trim() || !emailBody.trim() || !emailTo.trim() || busy}
+            >
+              <Mail className="w-4 h-4" /> {busy ? 'Sending…' : 'Send'}
             </Button>
           </DialogFooter>
         </DialogContent>

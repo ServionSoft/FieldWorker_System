@@ -72,7 +72,8 @@ const AdminSettings = () => {
   const hydrate = useAppStore((s) => s.hydrate);
   const perms = currentUser?.permissions;
   const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') || 'company';
+  const tabRaw = params.get('tab') || 'company';
+  const tab = tabRaw === 'comms' ? 'twilio' : tabRaw;
   const setTab = (v: string) => setParams({ tab: v });
 
   const [company, setCompany] = useState<any>(null);
@@ -82,14 +83,19 @@ const AdminSettings = () => {
   const [prefs, setPrefs] = useState({ notifyEmailAssignments: true, notifyEmailInvoices: true, notifyEmailBilling: true });
   const [invite, setInvite] = useState({ email: '', name: '', role: 'office' });
   const [smtp, setSmtp] = useState({ host: '', port: 587, user: '', password: '', secure: true, fromName: '', fromEmail: '', replyTo: '' });
+  const [twilio, setTwilio] = useState({ accountSid: '', authToken: '', fromNumber: '' });
+  const [twilioMeta, setTwilioMeta] = useState({ configured: false, hasAuthToken: false, source: null as string | null, webhooks: { sms: '', voice: '', status: '' } });
   const [editMember, setEditMember] = useState<any>(null);
   const [companyErrors, setCompanyErrors] = useState<Record<string, string>>({});
   const [inviteErrors, setInviteErrors] = useState<Record<string, string>>({});
   const [smtpErrors, setSmtpErrors] = useState<Record<string, string>>({});
+  const [twilioErrors, setTwilioErrors] = useState<Record<string, string>>({});
   const [savingCompany, setSavingCompany] = useState(false);
   const [savingInvoice, setSavingInvoice] = useState(false);
   const [savingSmtp, setSavingSmtp] = useState(false);
   const [testingSmtp, setTestingSmtp] = useState(false);
+  const [savingTwilio, setSavingTwilio] = useState(false);
+  const [testingTwilio, setTestingTwilio] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [logoSrc, setLogoSrc] = useState<string | null>(null);
@@ -135,7 +141,7 @@ const AdminSettings = () => {
         address: c.address ?? '',
         website: c.website ?? '',
         invoiceFooter: c.invoiceFooter ?? '',
-        twilioNumber: c.twilioNumber ?? '',
+        twilioNumber: c.twilio?.fromNumber || c.twilioNumber || '',
         timezone: c.timezone ?? 'America/Chicago',
       });
       setInvoiceSettings({ ...DEFAULT_INVOICE_SETTINGS, ...(c.invoiceSettings || {}) });
@@ -144,6 +150,17 @@ const AdminSettings = () => {
         host: c.smtp?.host || '', port: c.smtp?.port || 587, user: c.smtp?.user || '', password: '',
         secure: c.smtp?.secure ?? true, fromName: c.smtp?.fromName || '', fromEmail: c.smtp?.fromEmail || '',
         replyTo: c.smtp?.replyTo || '',
+      });
+      setTwilio({
+        accountSid: c.twilio?.accountSid || '',
+        authToken: '',
+        fromNumber: c.twilio?.fromNumber || c.twilioNumber || '',
+      });
+      setTwilioMeta({
+        configured: Boolean(c.twilio?.configured),
+        hasAuthToken: Boolean(c.twilio?.hasAuthToken),
+        source: c.twilio?.source || null,
+        webhooks: c.twilio?.webhooks || { sms: '', voice: '', status: '' },
       });
     } catch { /* ignore */ }
     if (can(perms, 'settings.users')) {
@@ -176,7 +193,6 @@ const AdminSettings = () => {
         email: company.email,
         phone: company.phone ?? '',
         address: company.address ?? '',
-        twilioNumber: company.twilioNumber ?? '',
         timezone: company.timezone ?? '',
         defaultTaxPct: Number(company.defaultTaxPct || 0),
         website: company.website ?? '',
@@ -305,6 +321,56 @@ const AdminSettings = () => {
     }
   };
 
+  const saveTwilio = async () => {
+    const next = applyErrors({
+      accountSid: requiredText(twilio.accountSid, 'Account SID'),
+      fromNumber: phoneError(twilio.fromNumber, { required: true }),
+      authToken: twilioMeta.hasAuthToken || twilio.authToken.trim() ? '' : requiredText(twilio.authToken, 'Auth token'),
+    });
+    setTwilioErrors(next);
+    if (Object.values(next).some(Boolean)) return false;
+    setSavingTwilio(true);
+    try {
+      await api.company.updateTwilio({
+        accountSid: twilio.accountSid.trim(),
+        fromNumber: twilio.fromNumber.trim(),
+        authToken: twilio.authToken.trim() || undefined,
+      });
+      toast.success('Twilio saved');
+      setTwilio((s) => ({ ...s, authToken: '' }));
+      setTwilioMeta((m) => ({ ...m, configured: true, hasAuthToken: true, source: 'tenant' }));
+      return true;
+    } catch (err: any) {
+      toast.error(err?.message || 'Twilio save failed');
+      return false;
+    } finally {
+      setSavingTwilio(false);
+    }
+  };
+
+  const testTwilio = async () => {
+    const saved = await saveTwilio();
+    if (!saved) return;
+    setTestingTwilio(true);
+    try {
+      const r = await api.company.testTwilio() as { friendlyName?: string };
+      toast.success(r.friendlyName ? `Twilio connected: ${r.friendlyName}` : 'Twilio credentials verified');
+    } catch (e: any) {
+      toast.error(e?.message || 'Twilio verification failed');
+    } finally {
+      setTestingTwilio(false);
+    }
+  };
+
+  const copyWebhook = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('Copied webhook URL');
+    } catch {
+      toast.error('Could not copy');
+    }
+  };
+
   const sendInvite = async () => {
     const next = applyErrors({
       inviteEmail: emailError(invite.email, { required: true }),
@@ -326,7 +392,7 @@ const AdminSettings = () => {
     { id: 'company', label: 'Company', show: can(perms, 'settings.company') || can(perms, 'jobs.read') },
     { id: 'users', label: 'Users', show: can(perms, 'settings.users') },
     { id: 'smtp', label: 'Company email', show: can(perms, 'settings.smtp') },
-    { id: 'comms', label: 'Communications', show: can(perms, 'settings.company') },
+    { id: 'twilio', label: 'Twilio', show: can(perms, 'settings.company') },
     { id: 'billing', label: 'Billing', show: can(perms, 'billing.manage') },
     { id: 'notifications', label: 'Notifications', show: true },
   ].filter((t) => t.show)), [perms]);
@@ -335,7 +401,7 @@ const AdminSettings = () => {
     <div className="space-y-6 max-w-4xl">
       <div>
         <h1 className="text-2xl font-heading font-bold">Settings</h1>
-        <p className="text-muted-foreground text-sm">Company, team, email, and subscription</p>
+        <p className="text-muted-foreground text-sm">Company, team, email, Twilio, and subscription</p>
       </div>
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex flex-wrap h-auto">
@@ -591,16 +657,83 @@ const AdminSettings = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="comms" className="mt-4">
+        <TabsContent value="twilio" className="mt-4">
           <Card>
-            <CardHeader><CardTitle className="text-lg">Twilio</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-lg">Twilio</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Each company uses its own Twilio account for SMS and calls. These credentials are never shared with other tenants.
+              </p>
+              {twilioMeta.source && (
+                <p className="text-xs text-muted-foreground">
+                  Status: connected{twilioMeta.source === 'platform' ? ' (platform fallback — save your own SID and token here)' : ''}
+                </p>
+              )}
+            </CardHeader>
             <CardContent className="space-y-3">
-              <div className="space-y-1">
-                <Label>From number (E.164)</Label>
-                <Input value={company?.twilioNumber || ''} onChange={(e) => setCompany({ ...company, twilioNumber: e.target.value })} placeholder="+15551234567" />
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div className="space-y-1 sm:col-span-2">
+                  <Label htmlFor="twilioSid">Account SID</Label>
+                  <Input
+                    id="twilioSid"
+                    value={twilio.accountSid}
+                    onChange={(e) => setTwilio({ ...twilio, accountSid: e.target.value })}
+                    placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                    autoComplete="off"
+                    {...fieldInvalidProps('accountSid', twilioErrors.accountSid)}
+                  />
+                  <FieldError id="accountSid-error" message={twilioErrors.accountSid} />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label htmlFor="twilioToken">Auth token</Label>
+                  <Input
+                    id="twilioToken"
+                    type="password"
+                    value={twilio.authToken}
+                    onChange={(e) => setTwilio({ ...twilio, authToken: e.target.value })}
+                    placeholder={twilioMeta.hasAuthToken ? 'Unchanged if blank' : 'Auth token from Twilio console'}
+                    autoComplete="new-password"
+                    {...fieldInvalidProps('authToken', twilioErrors.authToken)}
+                  />
+                  <FieldError id="authToken-error" message={twilioErrors.authToken} />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label htmlFor="twilioFrom">From number (E.164)</Label>
+                  <Input
+                    id="twilioFrom"
+                    value={twilio.fromNumber}
+                    onChange={(e) => setTwilio({ ...twilio, fromNumber: e.target.value })}
+                    placeholder="+15551234567"
+                    {...fieldInvalidProps('fromNumber', twilioErrors.fromNumber)}
+                  />
+                  <FieldError id="fromNumber-error" message={twilioErrors.fromNumber} />
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground">SID and auth token stay in backend .env.</p>
-              <Button onClick={saveCompany}>Save</Button>
+              {(twilioMeta.webhooks.sms || twilioMeta.webhooks.voice) && (
+                <div className="rounded-lg border p-3 space-y-2">
+                  <p className="text-sm font-medium">Twilio console webhooks</p>
+                  <p className="text-xs text-muted-foreground">Paste these on your Twilio phone number (A Message Comes In / A Call Comes In / status callback).</p>
+                  {([
+                    ['SMS', twilioMeta.webhooks.sms],
+                    ['Voice', twilioMeta.webhooks.voice],
+                    ['Status', twilioMeta.webhooks.status],
+                  ] as const).map(([label, url]) => (
+                    <div key={label} className="flex items-center gap-2">
+                      <span className="text-xs w-12 shrink-0 text-muted-foreground">{label}</span>
+                      <Input readOnly value={url} className="text-xs h-8" />
+                      <Button type="button" variant="outline" size="sm" onClick={() => { void copyWebhook(url); }}>Copy</Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Button onClick={() => { void saveTwilio(); }} disabled={savingTwilio || testingTwilio}>
+                  {savingTwilio ? 'Saving…' : 'Save Twilio'}
+                </Button>
+                <Button variant="outline" disabled={savingTwilio || testingTwilio} onClick={() => { void testTwilio(); }}>
+                  {testingTwilio ? 'Checking…' : 'Verify credentials'}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

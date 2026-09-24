@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import pg from 'pg';
 import twilio from 'twilio';
-import { pool, withTenant, pgPoolConfig } from '../../db/pool.js';
+import { withTenant, pgPoolConfig } from '../../db/pool.js';
 import { env } from '../../config/env.js';
-import { validateTwilioSignature } from '../../services/twilio.js';
+import { decryptTwilioAuthToken, requestMatchesTwilioToken } from '../../services/twilio.js';
 import { last10, toE164 } from '../../utils/phone.js';
 const { twiml } = twilio;
 const adminPool = new pg.Pool(pgPoolConfig(env.DATABASE_URL, { max: 4 }));
@@ -15,11 +15,13 @@ async function findCompanyByNumber(phone) {
     const key = last10(phone);
     if (!key)
         return null;
-    const { rows } = await pool.query(`SELECT id FROM companies
-     WHERE deleted_at IS NULL
+    const { rows } = await adminPool.query(`SELECT c.id FROM companies c
+     LEFT JOIN company_settings cs ON cs.company_id = c.id
+     WHERE c.deleted_at IS NULL
        AND (
-         right(regexp_replace(coalesce(twilio_number, ''), '\\D', '', 'g'), 10) = $1
-         OR right(regexp_replace(coalesce(phone, ''), '\\D', '', 'g'), 10) = $1
+         right(regexp_replace(coalesce(cs.twilio_from_number, c.twilio_number, ''), '\\D', '', 'g'), 10) = $1
+         OR right(regexp_replace(coalesce(c.twilio_number, ''), '\\D', '', 'g'), 10) = $1
+         OR right(regexp_replace(coalesce(c.phone, ''), '\\D', '', 'g'), 10) = $1
        )
      LIMIT 1`, [key]);
     return rows[0]?.id ?? null;
@@ -35,11 +37,47 @@ async function findCustomerByPhone(companyId, phone) {
         return rows[0]?.customer_id ?? null;
     });
 }
-twilioWebhooks.use((req, res, next) => {
-    if (!validateTwilioSignature(req)) {
-        return res.status(403).type('text/xml').send('<Response></Response>');
+async function authTokensForRequest(req) {
+    const tokens = new Set();
+    const companyIds = new Set();
+    const to = String(req.body?.To ?? '');
+    const companyFromTo = await findCompanyByNumber(to);
+    if (companyFromTo)
+        companyIds.add(companyFromTo);
+    const sid = String(req.body?.CallSid || req.body?.MessageSid || '');
+    if (sid) {
+        const { rows } = await adminPool.query(`SELECT company_id FROM communications WHERE twilio_sid = $1 LIMIT 1`, [sid]);
+        if (rows[0]?.company_id)
+            companyIds.add(rows[0].company_id);
     }
-    next();
+    const connectMatch = String(req.originalUrl || req.url).match(/voice\/connect\/([0-9a-f-]{36})/i);
+    if (connectMatch) {
+        const { rows } = await adminPool.query(`SELECT company_id FROM communications WHERE id = $1`, [connectMatch[1]]);
+        if (rows[0]?.company_id)
+            companyIds.add(rows[0].company_id);
+    }
+    for (const companyId of companyIds) {
+        const { rows } = await adminPool.query(`SELECT twilio_auth_token_enc FROM company_settings WHERE company_id = $1`, [companyId]);
+        const token = decryptTwilioAuthToken(rows[0]?.twilio_auth_token_enc);
+        if (token)
+            tokens.add(token);
+    }
+    if (env.TWILIO_AUTH_TOKEN)
+        tokens.add(env.TWILIO_AUTH_TOKEN);
+    return [...tokens];
+}
+twilioWebhooks.use(async (req, res, next) => {
+    if (env.TWILIO_SKIP_SIGNATURE)
+        return next();
+    try {
+        const tokens = await authTokensForRequest(req);
+        if (tokens.some((token) => requestMatchesTwilioToken(req, token)))
+            return next();
+    }
+    catch {
+        /* reject below */
+    }
+    return res.status(403).type('text/xml').send('<Response></Response>');
 });
 twilioWebhooks.post('/sms', async (req, res) => {
     const from = String(req.body.From ?? '');
