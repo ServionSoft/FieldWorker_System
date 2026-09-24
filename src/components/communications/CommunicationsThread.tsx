@@ -9,10 +9,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Phone, MessageSquare, Voicemail, PhoneIncoming, PhoneOutgoing, PhoneMissed,
-  ArrowDownLeft, ArrowUpRight, Play, Filter, Mail,
+  ArrowDownLeft, ArrowUpRight, Play, Filter, Mail, FileText, Calculator,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -58,7 +60,7 @@ const formatTime = (iso: string) => {
 
 const CommunicationsThread: React.FC<Props> = ({ toNumber, filter, compact, title = 'Communications' }) => {
   const qc = useQueryClient();
-  const { communications, currentUser, company, markCommunicationRead, customers, jobs, estimates } = useFieldPro();
+  const { communications, currentUser, company, markCommunicationRead, customers, jobs, estimates, invoices } = useFieldPro();
   const [showCall, setShowCall] = useState(false);
   const [showSms, setShowSms] = useState(false);
   const [showEmail, setShowEmail] = useState(false);
@@ -66,6 +68,10 @@ const CommunicationsThread: React.FC<Props> = ({ toNumber, filter, compact, titl
   const [emailTo, setEmailTo] = useState('');
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
+  const [attachInvoice, setAttachInvoice] = useState(false);
+  const [attachEstimate, setAttachEstimate] = useState(false);
+  const [attachInvoiceId, setAttachInvoiceId] = useState('');
+  const [attachEstimateId, setAttachEstimateId] = useState('');
   const [callNotes, setCallNotes] = useState('');
   const [callbackNumber, setCallbackNumber] = useState(currentUser?.phone || '');
   const [busy, setBusy] = useState(false);
@@ -80,6 +86,41 @@ const CommunicationsThread: React.FC<Props> = ({ toNumber, filter, compact, titl
     if (filter.estimateId) return estimates.find(e => e.id === filter.estimateId)?.customerId;
     return undefined;
   };
+
+  const relatedInvoices = useMemo(() => {
+    const cid = resolveCustomerId();
+    const job = filter.jobId ? jobs.find(j => j.id === filter.jobId) : undefined;
+    return invoices
+      .filter((inv: any) => {
+        if (filter.jobId && (inv.jobId === filter.jobId || job?.invoiceId === inv.id)) return true;
+        if (cid && inv.customerId === cid) return true;
+        return false;
+      })
+      .sort((a: any, b: any) => {
+        const aJob = a.jobId === filter.jobId || job?.invoiceId === a.id ? 0 : 1;
+        const bJob = b.jobId === filter.jobId || job?.invoiceId === b.id ? 0 : 1;
+        return aJob - bJob;
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoices, jobs, filter.jobId, filter.customerId, filter.estimateId, customers]);
+
+  const relatedEstimates = useMemo(() => {
+    const cid = resolveCustomerId();
+    const job = filter.jobId ? jobs.find(j => j.id === filter.jobId) : undefined;
+    return estimates
+      .filter((est) => {
+        if (filter.estimateId && est.id === filter.estimateId) return true;
+        if (job?.estimateId && est.id === job.estimateId) return true;
+        if (cid && est.customerId === cid) return true;
+        return false;
+      })
+      .sort((a, b) => {
+        const aLink = (filter.estimateId && a.id === filter.estimateId) || (job?.estimateId && a.id === job.estimateId) ? 0 : 1;
+        const bLink = (filter.estimateId && b.id === filter.estimateId) || (job?.estimateId && b.id === job.estimateId) ? 0 : 1;
+        return aLink - bLink;
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estimates, jobs, filter.jobId, filter.customerId, filter.estimateId, customers]);
 
   const thread = useMemo(() => {
     const cid = resolveCustomerId();
@@ -182,6 +223,10 @@ const CommunicationsThread: React.FC<Props> = ({ toNumber, filter, compact, titl
     setEmailTo(to);
     setEmailSubject(defaultEmailSubject());
     setEmailBody('');
+    setAttachInvoice(false);
+    setAttachEstimate(false);
+    setAttachInvoiceId(relatedInvoices[0]?.id || '');
+    setAttachEstimateId(relatedEstimates[0]?.id || filter.estimateId || '');
     setShowEmail(true);
   };
 
@@ -196,6 +241,8 @@ const CommunicationsThread: React.FC<Props> = ({ toNumber, filter, compact, titl
         customerId: resolveCustomerId(),
         jobId: filter.jobId,
         estimateId: filter.estimateId,
+        invoiceId: attachInvoice && attachInvoiceId ? attachInvoiceId : undefined,
+        attachEstimateId: attachEstimate && attachEstimateId ? attachEstimateId : undefined,
       });
       await qc.invalidateQueries({ queryKey: ['communications'] });
       toast.success('Email sent');
@@ -392,7 +439,7 @@ const CommunicationsThread: React.FC<Props> = ({ toNumber, filter, compact, titl
       </Dialog>
 
       <Dialog open={showEmail} onOpenChange={setShowEmail}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Mail className="w-4 h-4" /> Send Email
@@ -420,12 +467,72 @@ const CommunicationsThread: React.FC<Props> = ({ toNumber, filter, compact, titl
             <div>
               <Label>Message</Label>
               <Textarea
-                rows={8}
+                rows={6}
                 value={emailBody}
                 onChange={e => setEmailBody(e.target.value)}
                 placeholder="Type your message..."
                 maxLength={10000}
               />
+            </div>
+            <div className="rounded-lg border p-3 space-y-3">
+              <p className="text-sm font-medium">Attachments (optional)</p>
+              <p className="text-xs text-muted-foreground">Leave unchecked to send the email without PDFs.</p>
+              <div className="flex items-start gap-2 text-sm">
+                <Checkbox
+                  className="mt-0.5"
+                  checked={attachInvoice}
+                  disabled={!relatedInvoices.length}
+                  onCheckedChange={(v) => {
+                    setAttachInvoice(v === true);
+                    if (v === true && !attachInvoiceId && relatedInvoices[0]) setAttachInvoiceId(relatedInvoices[0].id);
+                  }}
+                />
+                <span className="flex-1 min-w-0 space-y-1.5">
+                  <span className="flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> Attach invoice PDF</span>
+                  {relatedInvoices.length === 0 ? (
+                    <span className="block text-xs text-muted-foreground">No invoices for this customer</span>
+                  ) : relatedInvoices.length === 1 ? (
+                    <span className="block text-xs text-muted-foreground">{relatedInvoices[0].invoiceNumber}</span>
+                  ) : (
+                    <Select value={attachInvoiceId} onValueChange={setAttachInvoiceId} disabled={!attachInvoice}>
+                      <SelectTrigger className="h-8"><SelectValue placeholder="Choose invoice" /></SelectTrigger>
+                      <SelectContent>
+                        {relatedInvoices.map((inv: any) => (
+                          <SelectItem key={inv.id} value={inv.id}>{inv.invoiceNumber}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </span>
+              </div>
+              <div className="flex items-start gap-2 text-sm">
+                <Checkbox
+                  className="mt-0.5"
+                  checked={attachEstimate}
+                  disabled={!relatedEstimates.length}
+                  onCheckedChange={(v) => {
+                    setAttachEstimate(v === true);
+                    if (v === true && !attachEstimateId && relatedEstimates[0]) setAttachEstimateId(relatedEstimates[0].id);
+                  }}
+                />
+                <span className="flex-1 min-w-0 space-y-1.5">
+                  <span className="flex items-center gap-1.5"><Calculator className="w-3.5 h-3.5" /> Attach estimate PDF</span>
+                  {relatedEstimates.length === 0 ? (
+                    <span className="block text-xs text-muted-foreground">No estimates for this customer</span>
+                  ) : relatedEstimates.length === 1 ? (
+                    <span className="block text-xs text-muted-foreground">{relatedEstimates[0].estimateNumber}</span>
+                  ) : (
+                    <Select value={attachEstimateId} onValueChange={setAttachEstimateId} disabled={!attachEstimate}>
+                      <SelectTrigger className="h-8"><SelectValue placeholder="Choose estimate" /></SelectTrigger>
+                      <SelectContent>
+                        {relatedEstimates.map((est) => (
+                          <SelectItem key={est.id} value={est.id}>{est.estimateNumber}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </span>
+              </div>
             </div>
           </div>
           <DialogFooter>

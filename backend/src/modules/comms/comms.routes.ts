@@ -300,6 +300,8 @@ commsRouter.post('/email', tenantRoute(async (req, res, client) => {
     customerId: z.string().uuid().optional(),
     jobId: z.string().uuid().optional(),
     estimateId: z.string().uuid().optional(),
+    invoiceId: z.string().uuid().optional(),
+    attachEstimateId: z.string().uuid().optional(),
     toEmail: z.string().email().optional(),
   }).parse(req.body);
   const companyId = req.auth.companyId!;
@@ -326,6 +328,26 @@ commsRouter.post('/email', tenantRoute(async (req, res, client) => {
   const cust = await customerEmailFor(client, companyId, customerId);
   const to = body.toEmail || cust?.email;
   if (!to) throw badRequest('This customer has no email address');
+  const attachments = [];
+  if (body.invoiceId) {
+    const inv = await client.query(
+      `SELECT id, customer_id FROM invoices WHERE company_id = $1 AND id = $2`,
+      [companyId, body.invoiceId],
+    );
+    if (!inv.rowCount || inv.rows[0].customer_id !== customerId) throw notFound('Invoice');
+    const pdf = await buildInvoicePdf(client, companyId, body.invoiceId);
+    if (pdf) attachments.push(pdf);
+  }
+  const attachEstimateId = body.attachEstimateId || undefined;
+  if (attachEstimateId) {
+    const est = await client.query(
+      `SELECT id, customer_id FROM estimates WHERE company_id = $1 AND id = $2`,
+      [companyId, attachEstimateId],
+    );
+    if (!est.rowCount || est.rows[0].customer_id !== customerId) throw notFound('Estimate');
+    const pdf = await buildEstimatePdf(client, companyId, attachEstimateId);
+    if (pdf) attachments.push(pdf);
+  }
   const company = await client.query(`SELECT name FROM companies WHERE id = $1`, [companyId]);
   const result = await sendTenantCrmEmail(client, {
     companyId,
@@ -333,7 +355,7 @@ commsRouter.post('/email', tenantRoute(async (req, res, client) => {
     to,
     customerId,
     jobId,
-    estimateId,
+    estimateId: estimateId || attachEstimateId,
     userId: req.auth.userId,
     template: { subject: body.subject, body: body.message },
     vars: {
@@ -341,6 +363,7 @@ commsRouter.post('/email', tenantRoute(async (req, res, client) => {
       companyName: company.rows[0]?.name ?? '',
       message: body.message,
     },
+    attachments: attachments.length ? attachments : undefined,
   });
   if (!result.sent) {
     const detail = result.error === 'not_configured'
